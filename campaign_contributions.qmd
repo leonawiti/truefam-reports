@@ -8,7 +8,29 @@ format:
     page-layout: full
 ---
 
-```{=html}
+```{python}
+#| label: setup
+#| include: false
+
+import sys, os
+from pathlib import Path
+from datetime import date, datetime
+
+sys.path.insert(0, str(Path(os.path.abspath("")).resolve()))
+sys.path.insert(0, str(Path(os.path.abspath("")).resolve().parent / "reports"))
+
+from db_connection import query
+import pandas as pd
+from IPython.display import display, HTML
+
+now = datetime.now().strftime("%B %d, %Y at %I:%M %p")
+```
+
+```{python}
+#| label: styles
+#| echo: false
+
+display(HTML("""
 <style>
   body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f8f8f6; }
   .confidential-banner {
@@ -24,27 +46,18 @@ format:
     background: #fff; border: 0.5px solid rgba(0,0,0,0.1); border-radius: 12px;
     padding: 0; margin-bottom: 24px; overflow: hidden;
   }
-  .campaign-header {
-    background: #0f172a; color: #fff; padding: 18px 24px;
-  }
-  .campaign-header h3 { font-size: 16px; font-weight: 600; margin: 0 0 12px 0; display: flex; align-items: center; gap: 10px; }
-  .campaign-meta {
-    display: grid; grid-template-columns: repeat(3, 1fr);
-    gap: 14px 24px;
-  }
-  .meta-item { }
+  .campaign-header { background: #0f172a; color: #fff; padding: 18px 24px; }
+  .campaign-header-title { font-size: 16px; font-weight: 600; margin: 0 0 14px 0; display: flex; align-items: center; gap: 10px; }
+  .campaign-meta { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px 24px; }
   .meta-label { font-size: 10px; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 0.5px; }
-  .meta-value { font-size: 14px; font-weight: 500; margin-top: 2px; }
-  .status-pill {
-    display: inline-block; padding: 2px 10px; border-radius: 20px;
-    font-size: 11px; font-weight: 600;
-  }
+  .meta-value { font-size: 14px; font-weight: 500; margin-top: 2px; color: #fff; }
+  .status-pill { display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
   .status-open { background: #1D9E75; color: #fff; }
   .status-closed { background: #666; color: #fff; }
   .status-paused { background: #EF9F27; color: #fff; }
   .status-cancelled { background: #E24B4A; color: #fff; }
   .days-box { text-align: center; }
-  .days-remaining { font-size: 28px; font-weight: 700; line-height: 1; }
+  .days-remaining { font-size: 28px; font-weight: 700; line-height: 1; color: #fff; }
   .days-label { font-size: 10px; color: rgba(255,255,255,0.5); margin-top: 2px; }
   .contrib-table { width: 100%; border-collapse: collapse; font-size: 13px; }
   .contrib-table thead th {
@@ -54,9 +67,7 @@ format:
   }
   .contrib-table thead th:first-child { width: 40px; text-align: center; }
   .contrib-table thead th:last-child { text-align: right; }
-  .contrib-table tbody td {
-    padding: 10px 16px; border-bottom: 0.5px solid rgba(0,0,0,0.06);
-  }
+  .contrib-table tbody td { padding: 10px 16px; border-bottom: 0.5px solid rgba(0,0,0,0.06); }
   .contrib-table tbody td:first-child { text-align: center; color: #aaa; }
   .contrib-table tbody td:last-child { text-align: right; font-weight: 500; }
   .contrib-table tbody tr.paid { background: #E1F5EE; }
@@ -66,86 +77,47 @@ format:
   .status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
   .status-dot.green { background: #1D9E75; }
   .status-dot.red { background: #E24B4A; }
-  .campaign-footer {
-    background: #f4f4f2; padding: 16px 24px;
-    display: grid; grid-template-columns: repeat(6, 1fr);
-    gap: 12px;
-  }
-  .footer-stat { }
+  .campaign-footer { background: #f4f4f2; padding: 16px 24px; display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; }
   .footer-label { font-size: 10px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }
   .footer-value { font-size: 18px; font-weight: 600; color: #1a1a1a; margin-top: 2px; }
   .footer-value.green { color: #0F6E56; }
   .footer-value.red { color: #A32D2D; }
   #quarto-header, .quarto-title-block { display: none; }
 </style>
+"""))
+```
 
+```{python}
+#| label: banner-header
+#| echo: false
+
+display(HTML(f"""
 <div class="confidential-banner">
-  <strong>Confidential — Group Members Only</strong>
+  <strong>Confidential &mdash; Group Members Only</strong>
   <p>This report is intended solely for members of the indicated group. Sharing outside the group is strictly prohibited and may result in disciplinary action.</p>
 </div>
-```
-
-```{python}
-#| label: setup
-#| include: false
-
-import sys, os
-from pathlib import Path
-from datetime import date, datetime
-
-sys.path.insert(0, str(Path(os.path.abspath("")).resolve()))
-sys.path.insert(0, str(Path(os.path.abspath("")).resolve().parent / "reports"))
-
-from db_connection import query
-import pandas as pd
-
-now = datetime.now().strftime("%B %d, %Y at %I:%M %p")
-```
-
-```{python}
-#| label: header
-#| echo: false
-#| output: asis
-
-print(f"""<div class="report-header">
+<div class="report-header">
   <h2>Campaign Contributions Report</h2>
   <div class="timestamp">Generated {now}</div>
-</div>""")
+</div>
+"""))
 ```
 
 ```{python}
 #| label: campaigns
 #| echo: false
-#| output: asis
 
-# ── Helper: render one campaign card ──────────────────────────────────────────
-def render_campaign(title, status, bereaved, group_name, deceased, start_date,
-                    end_date, days_html, members_rows, total_members,
-                    paid_count, unpaid_count, total_collected, total_expected,
-                    collection_rate):
+def build_campaign_html(title, status, bereaved, group_name, deceased,
+                        start_date, end_date, days_html, members_rows,
+                        total_members, paid_count, unpaid_count,
+                        total_collected, total_expected, collection_rate):
     status_class = f"status-{status}"
     status_label = status.capitalize()
 
-    print(f"""<div class="campaign-card">
-  <div class="campaign-header">
-    <h3>{title} <span class="status-pill {status_class}">{status_label}</span></h3>
-    <div class="campaign-meta">
-      <div class="meta-item"><div class="meta-label">Bereaved Member</div><div class="meta-value">{bereaved}</div></div>
-      <div class="meta-item"><div class="meta-label">Group</div><div class="meta-value">{group_name}</div></div>
-      <div class="meta-item"><div class="meta-label">Deceased Dependent</div><div class="meta-value">{deceased}</div></div>
-      <div class="meta-item"><div class="meta-label">Campaign Start</div><div class="meta-value">{start_date}</div></div>
-      <div class="meta-item"><div class="meta-label">Campaign End</div><div class="meta-value">{end_date}</div></div>
-      <div class="meta-item days-box">{days_html}</div>
-    </div>
-  </div>
-  <table class="contrib-table">
-    <thead><tr>
-      <th>#</th><th>Member ID</th><th>Member Name</th><th>Payment Status</th><th>Amount ($)</th>
-    </tr></thead>
-    <tbody>""")
-
+    # Build table rows
+    rows_html = ""
     if not members_rows:
-        print('      <tr><td colspan="5" style="text-align:center;color:#aaa;padding:24px;">No members in this campaign</td></tr>')
+        rows_html = '<tr><td colspan="5" style="text-align:center;color:#aaa;padding:24px;">No members in this campaign</td></tr>'
     else:
         for i, row in enumerate(members_rows, 1):
             is_paid = row["status"] == "paid"
@@ -153,19 +125,37 @@ def render_campaign(title, status, bereaved, group_name, deceased, start_date,
             dot_class = "green" if is_paid else "red"
             status_text = "Paid" if is_paid else "Unpaid"
             amount = f"${row['amount'] / 100:,.2f}" if row["amount"] else "$0.00"
-            print(f'      <tr class="{row_class}"><td>{i}</td><td>{row["member_id"]}</td><td>{row["name"]}</td><td class="status-col"><span class="status-dot {dot_class}"></span>{status_text}</td><td>{amount}</td></tr>')
+            name = row["name"].upper()
+            rows_html += f'<tr class="{row_class}"><td>{i}</td><td>{row["member_id"]}</td><td>{name}</td><td class="status-col"><span class="status-dot {dot_class}"></span>{status_text}</td><td>{amount}</td></tr>\n'
 
-    print(f"""    </tbody>
+    html = f"""
+<div class="campaign-card">
+  <div class="campaign-header">
+    <div class="campaign-header-title">{title} &nbsp;<span class="status-pill {status_class}">{status_label}</span></div>
+    <div class="campaign-meta">
+      <div><div class="meta-label">Bereaved Member</div><div class="meta-value">{bereaved}</div></div>
+      <div><div class="meta-label">Group</div><div class="meta-value">{group_name}</div></div>
+      <div><div class="meta-label">Deceased Dependent</div><div class="meta-value">{deceased}</div></div>
+      <div><div class="meta-label">Campaign Start</div><div class="meta-value">{start_date}</div></div>
+      <div><div class="meta-label">Campaign End</div><div class="meta-value">{end_date}</div></div>
+      <div class="days-box">{days_html}</div>
+    </div>
+  </div>
+  <table class="contrib-table">
+    <thead><tr><th>#</th><th>Member ID</th><th>Member Name</th><th>Payment Status</th><th>Amount ($)</th></tr></thead>
+    <tbody>{rows_html}</tbody>
   </table>
   <div class="campaign-footer">
-    <div class="footer-stat"><div class="footer-label">Total Members</div><div class="footer-value">{total_members}</div></div>
-    <div class="footer-stat"><div class="footer-label">Paid</div><div class="footer-value green">{paid_count}</div></div>
-    <div class="footer-stat"><div class="footer-label">Unpaid</div><div class="footer-value red">{unpaid_count}</div></div>
-    <div class="footer-stat"><div class="footer-label">Total Collected</div><div class="footer-value green">${total_collected:,.2f}</div></div>
-    <div class="footer-stat"><div class="footer-label">Total Expected</div><div class="footer-value">${total_expected:,.2f}</div></div>
-    <div class="footer-stat"><div class="footer-label">Collection Rate</div><div class="footer-value">{collection_rate:.1f}%</div></div>
+    <div><div class="footer-label">Total Members</div><div class="footer-value">{total_members}</div></div>
+    <div><div class="footer-label">Paid</div><div class="footer-value green">{paid_count}</div></div>
+    <div><div class="footer-label">Unpaid</div><div class="footer-value red">{unpaid_count}</div></div>
+    <div><div class="footer-label">Total Collected</div><div class="footer-value green">${total_collected:,.2f}</div></div>
+    <div><div class="footer-label">Total Expected</div><div class="footer-value">${total_expected:,.2f}</div></div>
+    <div><div class="footer-label">Collection Rate</div><div class="footer-value">{collection_rate:.1f}%</div></div>
   </div>
-</div>""")
+</div>
+"""
+    return html
 
 
 # ── Fetch campaigns from DB ───────────────────────────────────────────────────
@@ -191,14 +181,12 @@ open_df = campaigns_df[campaigns_df["campaign_status"] == "open"]
 closed_df = campaigns_df[campaigns_df["campaign_status"] != "open"].head(3)
 campaigns_df = pd.concat([open_df, closed_df], ignore_index=True)
 
-has_data = not campaigns_df.empty
+all_html = ""
 
-if has_data:
-    # ── Render real campaigns ─────────────────────────────────────────────────
+if not campaigns_df.empty:
     for _, camp in campaigns_df.iterrows():
         cid = camp["campaign_id"]
 
-        # Deceased dependent
         deceased_df = query(f"""
             SELECT ci.beneficiary_full_name
             FROM claims_claimitem ci
@@ -207,9 +195,8 @@ if has_data:
             WHERE cc.id = {cid} AND ci.status = 'approved'
             LIMIT 1
         """)
-        deceased_name = deceased_df["beneficiary_full_name"].iloc[0] if not deceased_df.empty else "—"
+        deceased_name = deceased_df["beneficiary_full_name"].iloc[0].upper() if not deceased_df.empty else "\u2014"
 
-        # Obligations
         obligations_df = query(f"""
             SELECT
                 m.member_id,
@@ -230,8 +217,8 @@ if has_data:
         ]
 
         status = camp["campaign_status"]
-        start_str = pd.to_datetime(camp["started_at"]).strftime("%b %d, %Y") if camp["started_at"] else "—"
-        end_str = pd.to_datetime(camp["due_date"]).strftime("%b %d, %Y") if camp["due_date"] else "—"
+        start_str = pd.to_datetime(camp["started_at"]).strftime("%b %d, %Y") if camp["started_at"] else "\u2014"
+        end_str = pd.to_datetime(camp["due_date"]).strftime("%b %d, %Y") if camp["due_date"] else "\u2014"
 
         if camp["due_date"] is not None and status == "open":
             due = pd.to_datetime(camp["due_date"]).date()
@@ -240,7 +227,7 @@ if has_data:
         elif status != "open":
             days_html = f'<div class="days-remaining" style="font-size:14px;">{status.capitalize()}</div><div class="days-label">campaign {status}</div>'
         else:
-            days_html = '<div class="days-remaining">—</div><div class="days-label">no due date set</div>'
+            days_html = '<div class="days-remaining">\u2014</div><div class="days-label">no due date set</div>'
 
         total = len(members_rows)
         paid = sum(1 for r in members_rows if r["status"] == "paid")
@@ -249,27 +236,23 @@ if has_data:
         expected = sum(r["amount"] for r in members_rows) / 100
         rate = (paid / total * 100) if total > 0 else 0.0
 
-        render_campaign(
+        all_html += build_campaign_html(
             title=camp["campaign_title"] or f"Campaign #{cid}",
             status=status,
-            bereaved=camp["bereaved_member"],
-            group_name=camp["group_name"],
+            bereaved=camp["bereaved_member"].upper(),
+            group_name=camp["group_name"].upper(),
             deceased=deceased_name,
             start_date=start_str,
             end_date=end_str,
             days_html=days_html,
             members_rows=members_rows,
-            total_members=total,
-            paid_count=paid,
-            unpaid_count=unpaid,
-            total_collected=collected,
-            total_expected=expected,
+            total_members=total, paid_count=paid, unpaid_count=unpaid,
+            total_collected=collected, total_expected=expected,
             collection_rate=rate,
         )
 
 else:
-    # ── No real campaigns — show full structure with group members ────────────
-    # Fetch all active groups and their members to display the empty template
+    # No campaigns — show full structure with real group members
     groups_df = query("""
         SELECT mg.id AS group_id, mg.name AS group_name
         FROM members_membergroup mg
@@ -278,23 +261,25 @@ else:
     """)
 
     if groups_df.empty:
-        groups_data = [{"group_id": 0, "group_name": "TRUEFAM Group"}]
+        groups_data = [{"group_id": 0, "group_name": "TRUEFAM GROUP"}]
     else:
         groups_data = groups_df.to_dict("records")
 
     for grp in groups_data:
-        # Fetch real group members if available
-        members_df = query(f"""
-            SELECT
-                m.member_id,
-                u.first_name || ' ' || u.last_name AS member_name
-            FROM members_member m
-            JOIN accounts_user u ON m.user_id = u.id
-            JOIN enrollment_enrollmentapplication ea ON ea.member_id = m.id
-            WHERE m.group_id = {grp['group_id']}
-              AND ea.status = 'approved'
-            ORDER BY m.member_id
-        """) if grp["group_id"] != 0 else pd.DataFrame()
+        if grp["group_id"] != 0:
+            members_df = query(f"""
+                SELECT
+                    m.member_id,
+                    u.first_name || ' ' || u.last_name AS member_name
+                FROM members_member m
+                JOIN accounts_user u ON m.user_id = u.id
+                JOIN enrollment_enrollmentapplication ea ON ea.member_id = m.id
+                WHERE m.group_id = {grp['group_id']}
+                  AND ea.status = 'approved'
+                ORDER BY m.member_id
+            """)
+        else:
+            members_df = pd.DataFrame()
 
         if not members_df.empty:
             members_rows = [
@@ -304,27 +289,25 @@ else:
             ]
         else:
             members_rows = [
-                {"member_id": "—", "name": "—", "status": "pending", "amount": 0}
+                {"member_id": "\u2014", "name": "\u2014", "status": "pending", "amount": 0}
             ]
 
         total = len(members_rows)
-        days_html = '<div class="days-remaining">—</div><div class="days-label">no active campaign</div>'
+        days_html = '<div class="days-remaining">\u2014</div><div class="days-label">no active campaign</div>'
 
-        render_campaign(
+        all_html += build_campaign_html(
             title="No Active Campaign",
             status="closed",
-            bereaved="—",
-            group_name=grp["group_name"],
-            deceased="—",
-            start_date="—",
-            end_date="—",
+            bereaved="\u2014",
+            group_name=grp["group_name"].upper(),
+            deceased="\u2014",
+            start_date="\u2014",
+            end_date="\u2014",
             days_html=days_html,
             members_rows=members_rows,
-            total_members=total,
-            paid_count=0,
-            unpaid_count=total,
-            total_collected=0.0,
-            total_expected=0.0,
-            collection_rate=0.0,
+            total_members=total, paid_count=0, unpaid_count=total,
+            total_collected=0.0, total_expected=0.0, collection_rate=0.0,
         )
+
+display(HTML(all_html))
 ```
