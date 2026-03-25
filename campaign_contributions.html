@@ -2,87 +2,84 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TRUEFAM Welfare — Campaign Contributions Report</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f5f4f0;color:#1a1a2e;font-size:14px}
-.page{max-width:860px;margin:0 auto;padding:32px 20px}
-.confidential-banner{border:1.5px solid #e05252;border-radius:10px;padding:12px 20px;text-align:center;background:#fff9f9;margin-bottom:24px}
-.conf-title{font-size:12px;font-weight:700;color:#c0392b;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px}
-.conf-body{font-size:11px;color:#888;line-height:1.5}
-.report-header{text-align:center;margin-bottom:24px}
-.logo-row{display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:12px}
-.logo-text{font-size:22px;font-weight:800;color:#1a3a5c;letter-spacing:1px}
-.logo-sub{font-size:10px;color:#E8A020;letter-spacing:2px;font-weight:500;text-transform:uppercase;display:block;text-align:center;margin-top:2px}
-.report-title{font-size:20px;font-weight:700;color:#1a3a5c;margin-bottom:4px}
-.report-meta{font-size:12px;color:#aaa}
+.page{max-width:600px;margin:0 auto;padding:20px 16px}
+.conf-banner{border:1.5px solid #e05252;border-radius:10px;padding:10px 14px;text-align:center;background:#fff9f9;margin-bottom:20px}
+.conf-title{font-size:11px;font-weight:700;color:#c0392b;letter-spacing:1px;text-transform:uppercase;margin-bottom:3px}
+.conf-body{font-size:11px;color:#999;line-height:1.5}
+.report-header{text-align:center;margin-bottom:20px}
+.logo-row{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:10px}
+.logo-text{font-size:20px;font-weight:800;color:#1a3a5c;letter-spacing:1px}
+.logo-sub{font-size:9px;color:#E8A020;letter-spacing:2px;font-weight:600;text-transform:uppercase;display:block;text-align:center;margin-top:1px}
+.report-title{font-size:17px;font-weight:700;color:#1a3a5c;margin-bottom:4px}
+.report-meta{font-size:11px;color:#aaa;line-height:1.6}
 .report-meta a{color:#1D9E75;text-decoration:none}
-.campaign-card{background:#1a3a5c;border-radius:14px;padding:20px 24px;margin-bottom:20px;color:#fff}
-.campaign-header{display:flex;align-items:center;gap:12px;margin-bottom:16px}
-.campaign-name{font-size:16px;font-weight:600}
-.status-badge{padding:3px 12px;border-radius:20px;font-size:11px;font-weight:600;background:rgba(255,255,255,0.15);color:#ccd}
-.status-badge-open{background:#1D9E75;color:#fff}
-.status-badge-paused{background:#E8A020;color:#fff}
-.status-badge-cancelled{background:#e05252;color:#fff}
-.campaign-fields{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
-.cf-label{font-size:10px;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:4px}
-.cf-value{font-size:13px;font-weight:500;color:#fff}
+.campaign-card{background:#1a3a5c;border-radius:14px;padding:16px 18px;margin-bottom:16px;color:#fff}
+.campaign-header{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.campaign-name{font-size:15px;font-weight:600}
+.status-badge{padding:3px 10px;border-radius:20px;font-size:10px;font-weight:600;background:rgba(255,255,255,0.15);color:#ccd;white-space:nowrap}
+.campaign-fields{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.cf-label{font-size:9px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:3px}
+.cf-value{font-size:12px;font-weight:500;color:#fff}
 .cf-value.empty{color:rgba(255,255,255,0.3);font-style:italic}
-.campaign-status-row{margin-top:14px;padding-top:14px;border-top:0.5px solid rgba(255,255,255,0.1);display:flex;align-items:center;gap:8px}
-.no-campaign-dot{width:6px;height:6px;border-radius:50%;background:#E8A020;flex-shrink:0}
-.no-campaign-text{font-size:11px;color:rgba(255,255,255,0.4)}
-.table-section{background:#fff;border-radius:14px;border:0.5px solid rgba(0,0,0,0.08);overflow:hidden;margin-bottom:20px}
-.table-header{padding:14px 20px;border-bottom:0.5px solid rgba(0,0,0,0.07);display:flex;align-items:center;justify-content:space-between}
-.table-header-title{font-size:13px;font-weight:600;color:#1a3a5c}
-.table-header-count{font-size:11px;color:#aaa}
-table{width:100%;border-collapse:collapse;table-layout:fixed}
-thead tr{background:#f8f8f6}
-th{padding:10px 20px;text-align:left;font-size:10px;font-weight:700;color:#bbb;text-transform:uppercase;letter-spacing:0.7px;border-bottom:0.5px solid rgba(0,0,0,0.06)}
-th:last-child{text-align:right}
-td{padding:12px 20px;font-size:13px;border-bottom:0.5px solid rgba(0,0,0,0.05)}
-td:last-child{text-align:right;font-weight:500}
-tr:last-child td{border-bottom:none}
-tr.row-unpaid{background:#fff5f5}
-tr.row-unpaid:hover{background:#ffeeee}
-tr.row-paid{background:#f0faf5}
-tr.row-paid:hover{background:#e6f7ee}
-tr.row-unpaid td{color:#7a2020}
-tr.row-paid td{color:#0a4a30}
-.row-num{font-size:12px;opacity:0.5}
-.member-id{font-family:monospace;font-size:12px;opacity:0.7}
-.member-name{font-weight:600;letter-spacing:0.3px}
-.status-pill{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:500}
+.campaign-note{margin-top:12px;padding-top:12px;border-top:0.5px solid rgba(255,255,255,0.1);display:flex;align-items:flex-start;gap:7px}
+.note-dot{width:6px;height:6px;border-radius:50%;background:#E8A020;flex-shrink:0;margin-top:3px}
+.note-text{font-size:11px;color:rgba(255,255,255,0.35);line-height:1.5}
+.section-card{background:#fff;border-radius:14px;border:0.5px solid rgba(0,0,0,0.08);overflow:hidden;margin-bottom:16px}
+.section-header{padding:12px 16px;border-bottom:0.5px solid rgba(0,0,0,0.06);display:flex;align-items:center;justify-content:space-between}
+.section-title{font-size:13px;font-weight:600;color:#1a3a5c}
+.section-count{font-size:11px;color:#bbb}
+.member-card{padding:12px 16px;border-bottom:0.5px solid rgba(0,0,0,0.05);display:flex;align-items:center;gap:12px}
+.member-card:last-child{border-bottom:none}
+.member-card.unpaid{background:#fff5f5}
+.member-card.paid{background:#f0faf5}
+.member-num{width:20px;font-size:12px;color:#ccc;flex-shrink:0;text-align:center}
+.member-info{flex:1;min-width:0}
+.member-name{font-size:13px;font-weight:600;letter-spacing:0.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.member-card.unpaid .member-name{color:#7a2020}
+.member-card.paid .member-name{color:#0a4a30}
+.member-id{font-size:11px;font-family:monospace;margin-top:2px}
+.member-card.unpaid .member-id{color:#b05050}
+.member-card.paid .member-id{color:#2a7a50}
+.member-right{display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex-shrink:0}
+.status-pill{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;white-space:nowrap}
 .pill-unpaid{background:#FCEBEB;color:#A32D2D}
 .pill-paid{background:#E1F5EE;color:#0F6E56}
 .pill-dot{width:5px;height:5px;border-radius:50%;background:currentColor;flex-shrink:0}
-.summary-strip{background:#fff;border-radius:14px;border:0.5px solid rgba(0,0,0,0.08);padding:16px 20px;display:grid;grid-template-columns:repeat(6,1fr)}
-.summary-item{text-align:center;padding:4px 0;border-right:0.5px solid rgba(0,0,0,0.07)}
-.summary-item:last-child{border-right:none}
-.summary-label{font-size:10px;color:#bbb;text-transform:uppercase;letter-spacing:0.6px;margin-bottom:5px}
-.summary-value{font-size:18px;font-weight:600;color:#1a3a5c}
+.member-amount{font-size:12px;font-weight:600}
+.member-card.unpaid .member-amount{color:#7a2020}
+.member-card.paid .member-amount{color:#0a4a30}
+.summary-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:rgba(0,0,0,0.06);border-radius:14px;overflow:hidden;margin-bottom:16px}
+.summary-item{background:#fff;padding:14px 10px;text-align:center}
+.summary-label{font-size:9px;color:#bbb;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:5px;line-height:1.3}
+.summary-value{font-size:20px;font-weight:700;color:#1a3a5c;line-height:1}
 .val-green{color:#0F6E56}
 .val-red{color:#c0392b}
 .val-amber{color:#E8A020}
-.footer{text-align:center;margin-top:20px;font-size:11px;color:#bbb;padding-bottom:8px}
+.summary-value.small{font-size:15px}
+.footer{text-align:center;font-size:11px;color:#bbb;padding-bottom:4px;line-height:1.8}
 .footer a{color:#1D9E75;text-decoration:none}
 </style>
 </head>
 <body>
 <div class="page">
 
-  <div class="confidential-banner">
-    <div class="conf-title">Confidential — Group members only</div>
-    <div class="conf-body">This report is intended solely for members of the indicated group. Sharing outside the group is strictly prohibited and may result in disciplinary action.</div>
+  <div class="conf-banner">
+    <div class="conf-title">Confidential &mdash; Group members only</div>
+    <div class="conf-body">This report is intended solely for members of the indicated group. Sharing outside the group is strictly prohibited.</div>
   </div>
 
   <div class="report-header">
     <div class="logo-row">
-      <img src="truefam-logo.png" alt="TRUEFAM Welfare" style="height:64px;">
+      <img src="truefam-logo.png" alt="TRUEFAM Welfare" style="height:54px;">
     </div>
     <div class="report-title">Campaign Contributions Report</div>
     <div class="report-meta">
-      Generated March 25, 2026 at 02:06 PM &nbsp;&middot;&nbsp;
+      March 25, 2026 &nbsp;&middot;&nbsp; 02:06 PM<br>
       <a href="https://www.truefamwelfare.com" target="_blank">www.truefamwelfare.com</a>
     </div>
   </div>
@@ -95,92 +92,103 @@ tr.row-paid td{color:#0a4a30}
     <div class="campaign-fields">
       <div><div class="cf-label">Bereaved member</div><div class="cf-value empty">&mdash;</div></div>
       <div><div class="cf-label">Group</div><div class="cf-value">KENYA A BASIC</div></div>
-      <div><div class="cf-label">Deceased dependent</div><div class="cf-value empty">&mdash;</div></div>
       <div><div class="cf-label">Campaign start</div><div class="cf-value empty">&mdash;</div></div>
       <div><div class="cf-label">Campaign end</div><div class="cf-value empty">&mdash;</div></div>
+      <div><div class="cf-label">Deceased dependent</div><div class="cf-value empty">&mdash;</div></div>
       <div><div class="cf-label">Collection rate</div><div class="cf-value empty">0.0%</div></div>
     </div>
-    <div class="campaign-status-row">
-      <div class="no-campaign-dot"></div>
-      <div class="no-campaign-text">No active campaign &mdash; contribution data will populate once a campaign is launched</div>
+    <div class="campaign-note">
+      <div class="note-dot"></div>
+      <div class="note-text">No active campaign &mdash; contributions will populate once a campaign is launched</div>
     </div>
   </div>
 
-  <div class="table-section">
-    <div class="table-header">
-      <div class="table-header-title">Member contributions</div>
-      <div class="table-header-count">6 members</div>
+  <div class="section-card">
+    <div class="section-header">
+      <div class="section-title">Member contributions</div>
+      <div class="section-count">6 members</div>
     </div>
-    <table>
-      <thead>
-        <tr>
-          <th style="width:36px">#</th>
-          <th style="width:120px">Member ID</th>
-          <th>Member name</th>
-          <th style="width:150px">Payment status</th>
-          <th style="width:100px">Amount ($)</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr class="row-unpaid">
-          <td><span class="row-num">1</span></td>
-          <td><span class="member-id">025400013</span></td>
-          <td><span class="member-name">CAINAN OJWANG</span></td>
-          <td><span class="status-pill pill-unpaid"><span class="pill-dot"></span>Unpaid</span></td>
-          <td>$0.00</td>
-        </tr>
-        <tr class="row-unpaid">
-          <td><span class="row-num">2</span></td>
-          <td><span class="member-id">025400014</span></td>
-          <td><span class="member-name">ROBERT OUMA</span></td>
-          <td><span class="status-pill pill-unpaid"><span class="pill-dot"></span>Unpaid</span></td>
-          <td>$0.00</td>
-        </tr>
-        <tr class="row-unpaid">
-          <td><span class="row-num">3</span></td>
-          <td><span class="member-id">025400015</span></td>
-          <td><span class="member-name">FRED OLUOCH</span></td>
-          <td><span class="status-pill pill-unpaid"><span class="pill-dot"></span>Unpaid</span></td>
-          <td>$0.00</td>
-        </tr>
-        <tr class="row-unpaid">
-          <td><span class="row-num">4</span></td>
-          <td><span class="member-id">025400016</span></td>
-          <td><span class="member-name">MARGARET OSELLE</span></td>
-          <td><span class="status-pill pill-unpaid"><span class="pill-dot"></span>Unpaid</span></td>
-          <td>$0.00</td>
-        </tr>
-        <tr class="row-unpaid">
-          <td><span class="row-num">5</span></td>
-          <td><span class="member-id">025400018</span></td>
-          <td><span class="member-name">LEON AWITI</span></td>
-          <td><span class="status-pill pill-unpaid"><span class="pill-dot"></span>Unpaid</span></td>
-          <td>$0.00</td>
-        </tr>
-        <tr class="row-unpaid">
-          <td><span class="row-num">6</span></td>
-          <td><span class="member-id">025400021</span></td>
-          <td><span class="member-name">SYLVIA WABUSHI</span></td>
-          <td><span class="status-pill pill-unpaid"><span class="pill-dot"></span>Unpaid</span></td>
-          <td>$0.00</td>
-        </tr>
-      </tbody>
-    </table>
+    <div class="member-card unpaid">
+      <div class="member-num">1</div>
+      <div class="member-info">
+        <div class="member-name">CAINAN OJWANG</div>
+        <div class="member-id">025400013</div>
+      </div>
+      <div class="member-right">
+        <span class="status-pill pill-unpaid"><span class="pill-dot"></span>Unpaid</span>
+        <span class="member-amount">$0.00</span>
+      </div>
+    </div>
+    <div class="member-card unpaid">
+      <div class="member-num">2</div>
+      <div class="member-info">
+        <div class="member-name">ROBERT OUMA</div>
+        <div class="member-id">025400014</div>
+      </div>
+      <div class="member-right">
+        <span class="status-pill pill-unpaid"><span class="pill-dot"></span>Unpaid</span>
+        <span class="member-amount">$0.00</span>
+      </div>
+    </div>
+    <div class="member-card unpaid">
+      <div class="member-num">3</div>
+      <div class="member-info">
+        <div class="member-name">FRED OLUOCH</div>
+        <div class="member-id">025400015</div>
+      </div>
+      <div class="member-right">
+        <span class="status-pill pill-unpaid"><span class="pill-dot"></span>Unpaid</span>
+        <span class="member-amount">$0.00</span>
+      </div>
+    </div>
+    <div class="member-card unpaid">
+      <div class="member-num">4</div>
+      <div class="member-info">
+        <div class="member-name">MARGARET OSELLE</div>
+        <div class="member-id">025400016</div>
+      </div>
+      <div class="member-right">
+        <span class="status-pill pill-unpaid"><span class="pill-dot"></span>Unpaid</span>
+        <span class="member-amount">$0.00</span>
+      </div>
+    </div>
+    <div class="member-card unpaid">
+      <div class="member-num">5</div>
+      <div class="member-info">
+        <div class="member-name">LEON AWITI</div>
+        <div class="member-id">025400018</div>
+      </div>
+      <div class="member-right">
+        <span class="status-pill pill-unpaid"><span class="pill-dot"></span>Unpaid</span>
+        <span class="member-amount">$0.00</span>
+      </div>
+    </div>
+    <div class="member-card unpaid">
+      <div class="member-num">6</div>
+      <div class="member-info">
+        <div class="member-name">SYLVIA WABUSHI</div>
+        <div class="member-id">025400021</div>
+      </div>
+      <div class="member-right">
+        <span class="status-pill pill-unpaid"><span class="pill-dot"></span>Unpaid</span>
+        <span class="member-amount">$0.00</span>
+      </div>
+    </div>
   </div>
 
-  <div class="summary-strip">
+  <div class="summary-grid">
     <div class="summary-item"><div class="summary-label">Total members</div><div class="summary-value">6</div></div>
     <div class="summary-item"><div class="summary-label">Paid</div><div class="summary-value val-green">0</div></div>
     <div class="summary-item"><div class="summary-label">Unpaid</div><div class="summary-value val-red">6</div></div>
-    <div class="summary-item"><div class="summary-label">Total collected</div><div class="summary-value val-green">$0.00</div></div>
-    <div class="summary-item"><div class="summary-label">Total expected</div><div class="summary-value">$0.00</div></div>
-    <div class="summary-item"><div class="summary-label">Collection rate</div><div class="summary-value val-amber">0.0%</div></div>
+    <div class="summary-item"><div class="summary-label">Total collected</div><div class="summary-value small val-green">$0.00</div></div>
+    <div class="summary-item"><div class="summary-label">Total expected</div><div class="summary-value small">$0.00</div></div>
+    <div class="summary-item"><div class="summary-label">Collection rate</div><div class="summary-value small val-amber">0.0%</div></div>
   </div>
 
   <div class="footer">
     TRUEFAM Welfare &nbsp;&middot;&nbsp;
-    <a href="https://www.truefamwelfare.com">www.truefamwelfare.com</a>
-    &nbsp;&middot;&nbsp; Confidential — do not distribute
+    <a href="https://www.truefamwelfare.com">www.truefamwelfare.com</a><br>
+    Confidential &mdash; do not distribute
   </div>
 
 </div>
