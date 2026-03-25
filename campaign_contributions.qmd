@@ -1,0 +1,252 @@
+---
+title: "TRUEFAM Welfare — Campaign Contributions"
+format:
+  html:
+    embed-resources: true
+    theme: flatly
+    toc: false
+    page-layout: full
+---
+
+```{=html}
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f8f8f6; }
+  .confidential-banner {
+    background: #fff; border: 2px solid #E24B4A; border-radius: 10px;
+    padding: 14px 20px; margin-bottom: 24px; text-align: center;
+  }
+  .confidential-banner strong { color: #A32D2D; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .confidential-banner p { color: #666; font-size: 12px; margin: 6px 0 0 0; }
+  .report-header { text-align: center; margin-bottom: 28px; }
+  .report-header h2 { font-size: 20px; font-weight: 600; color: #0f172a; margin: 0; }
+  .report-header .timestamp { font-size: 12px; color: #888; margin-top: 4px; }
+  .campaign-card {
+    background: #fff; border: 0.5px solid rgba(0,0,0,0.1); border-radius: 12px;
+    padding: 0; margin-bottom: 24px; overflow: hidden;
+  }
+  .campaign-header {
+    background: #0f172a; color: #fff; padding: 18px 24px;
+  }
+  .campaign-header h3 { font-size: 16px; font-weight: 600; margin: 0 0 12px 0; }
+  .campaign-meta {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+  }
+  .meta-item { }
+  .meta-label { font-size: 10px; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 0.5px; }
+  .meta-value { font-size: 14px; font-weight: 500; margin-top: 2px; }
+  .status-pill {
+    display: inline-block; padding: 2px 10px; border-radius: 20px;
+    font-size: 11px; font-weight: 600;
+  }
+  .status-open { background: #1D9E75; color: #fff; }
+  .status-closed { background: #666; color: #fff; }
+  .status-paused { background: #EF9F27; color: #fff; }
+  .status-cancelled { background: #E24B4A; color: #fff; }
+  .days-remaining { font-size: 22px; font-weight: 600; }
+  .days-label { font-size: 10px; color: rgba(255,255,255,0.5); }
+  .contrib-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .contrib-table thead th {
+    background: #f4f4f2; padding: 10px 16px; text-align: left;
+    font-size: 11px; font-weight: 600; color: #666; text-transform: uppercase;
+    letter-spacing: 0.5px; border-bottom: 1px solid rgba(0,0,0,0.08);
+  }
+  .contrib-table tbody td {
+    padding: 10px 16px; border-bottom: 0.5px solid rgba(0,0,0,0.06);
+  }
+  .contrib-table tbody tr.paid { background: #E1F5EE; }
+  .contrib-table tbody tr.unpaid { background: #FCEBEB; }
+  .contrib-table tbody tr.paid td:nth-child(4) { color: #0F6E56; font-weight: 600; }
+  .contrib-table tbody tr.unpaid td:nth-child(4) { color: #A32D2D; font-weight: 600; }
+  .campaign-footer {
+    background: #f4f4f2; padding: 16px 24px;
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+  }
+  .footer-stat { }
+  .footer-label { font-size: 10px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }
+  .footer-value { font-size: 18px; font-weight: 600; color: #1a1a1a; margin-top: 2px; }
+  .footer-value.green { color: #0F6E56; }
+  .footer-value.red { color: #A32D2D; }
+  .no-campaigns {
+    text-align: center; padding: 60px 20px; color: #888; font-size: 14px;
+    background: #fff; border-radius: 12px; border: 0.5px solid rgba(0,0,0,0.1);
+  }
+  #quarto-header, .quarto-title-block { display: none; }
+</style>
+
+<div class="confidential-banner">
+  <strong>Confidential — Group Members Only</strong>
+  <p>This report is intended solely for members of the indicated group. Sharing outside the group is strictly prohibited and may result in disciplinary action.</p>
+</div>
+```
+
+```{python}
+#| label: setup
+#| include: false
+
+import sys, os
+from pathlib import Path
+from datetime import date, datetime
+
+sys.path.insert(0, str(Path(os.path.abspath("")).resolve()))
+sys.path.insert(0, str(Path(os.path.abspath("")).resolve().parent / "reports"))
+
+from db_connection import query
+import pandas as pd
+from IPython.display import HTML
+
+now = datetime.now().strftime("%B %d, %Y at %I:%M %p")
+```
+
+```{python}
+#| label: header
+#| echo: false
+#| output: asis
+
+print(f"""<div class="report-header">
+  <h2>Campaign Contributions Report</h2>
+  <div class="timestamp">Generated {now}</div>
+</div>""")
+```
+
+```{python}
+#| label: campaigns
+#| echo: false
+#| output: asis
+
+# ── Fetch all relevant campaigns (open + last 3 closed) ──────────────────────
+campaigns_df = query("""
+    SELECT
+        cc.id AS campaign_id,
+        cc.title AS campaign_title,
+        cc.status AS campaign_status,
+        cc.started_at,
+        cc.due_date,
+        cc.obligations_count,
+        cc.paid_count,
+        cc.total_expected_cents,
+        cc.total_collected_cents,
+        mg.name AS group_name,
+        u.first_name || ' ' || u.last_name AS bereaved_member,
+        cc.claimant_member_id
+    FROM claims_contributioncampaign cc
+    JOIN members_membergroup mg ON cc.group_id = mg.id
+    JOIN members_member m ON cc.claimant_member_id = m.id
+    JOIN accounts_user u ON m.user_id = u.id
+    ORDER BY
+        CASE WHEN cc.status = 'open' THEN 0 ELSE 1 END,
+        cc.started_at DESC
+""")
+
+# Filter: all open + last 3 closed
+open_df = campaigns_df[campaigns_df["campaign_status"] == "open"]
+closed_df = campaigns_df[campaigns_df["campaign_status"] != "open"].head(3)
+campaigns_df = pd.concat([open_df, closed_df], ignore_index=True)
+
+if campaigns_df.empty:
+    print('<div class="no-campaigns">No active or recent campaigns found.</div>')
+else:
+    for _, camp in campaigns_df.iterrows():
+        cid = camp["campaign_id"]
+
+        # ── Deceased dependent name ──
+        deceased_df = query(f"""
+            SELECT ci.beneficiary_full_name
+            FROM claims_claimitem ci
+            JOIN claims_claim cl ON ci.claim_id = cl.id
+            JOIN claims_contributioncampaign cc ON cc.claim_id = cl.id
+            WHERE cc.id = {cid}
+              AND ci.status = 'approved'
+            LIMIT 1
+        """)
+        deceased_name = deceased_df["beneficiary_full_name"].iloc[0] if not deceased_df.empty else "N/A"
+
+        # ── Obligations (member contribution rows) ──
+        obligations_df = query(f"""
+            SELECT
+                ROW_NUMBER() OVER (ORDER BY m.member_id) AS row_num,
+                m.member_id,
+                u.first_name || ' ' || u.last_name AS member_name,
+                co.status,
+                co.amount_cents
+            FROM claims_contributionobligation co
+            JOIN members_member m ON co.member_id = m.id
+            JOIN accounts_user u ON m.user_id = u.id
+            WHERE co.campaign_id = {cid}
+            ORDER BY m.member_id
+        """)
+
+        # ── Campaign status pill ──
+        status = camp["campaign_status"]
+        status_class = f"status-{status}"
+        status_label = status.capitalize()
+
+        # ── Days remaining ──
+        if camp["due_date"] is not None and status == "open":
+            due = pd.to_datetime(camp["due_date"]).date()
+            remaining = max(0, (due - date.today()).days)
+            days_html = f'<div class="days-remaining">{remaining}</div><div class="days-label">days remaining</div>'
+        elif status != "open":
+            days_html = f'<div class="days-remaining" style="font-size:14px;">{status_label}</div><div class="days-label">campaign {status}</div>'
+        else:
+            days_html = '<div class="days-remaining">--</div><div class="days-label">no due date</div>'
+
+        start_date = pd.to_datetime(camp["started_at"]).strftime("%b %d, %Y") if camp["started_at"] else "N/A"
+        end_date = pd.to_datetime(camp["due_date"]).strftime("%b %d, %Y") if camp["due_date"] else "N/A"
+
+        # ── Summary stats ──
+        total_members = len(obligations_df)
+        paid_count = len(obligations_df[obligations_df["status"] == "paid"])
+        unpaid_count = total_members - paid_count
+        total_collected = obligations_df.loc[obligations_df["status"] == "paid", "amount_cents"].sum() / 100
+        total_expected = obligations_df["amount_cents"].sum() / 100
+        collection_rate = (paid_count / total_members * 100) if total_members > 0 else 0
+
+        # ── Render campaign card ──
+        title = camp["campaign_title"] or f"Campaign #{cid}"
+
+        print(f"""<div class="campaign-card">
+  <div class="campaign-header">
+    <h3>{title} <span class="status-pill {status_class}">{status_label}</span></h3>
+    <div class="campaign-meta">
+      <div class="meta-item"><div class="meta-label">Bereaved Member</div><div class="meta-value">{camp["bereaved_member"]}</div></div>
+      <div class="meta-item"><div class="meta-label">Group</div><div class="meta-value">{camp["group_name"]}</div></div>
+      <div class="meta-item"><div class="meta-label">Deceased Dependent</div><div class="meta-value">{deceased_name}</div></div>
+      <div class="meta-item"><div class="meta-label">Start Date</div><div class="meta-value">{start_date}</div></div>
+      <div class="meta-item"><div class="meta-label">End Date</div><div class="meta-value">{end_date}</div></div>
+      <div class="meta-item">{days_html}</div>
+    </div>
+  </div>""")
+
+        # ── Contribution table ──
+        print("""  <table class="contrib-table">
+    <thead><tr>
+      <th>#</th><th>Member ID</th><th>Member Name</th><th>Status</th><th>Amount ($)</th>
+    </tr></thead>
+    <tbody>""")
+
+        if obligations_df.empty:
+            print('    <tr><td colspan="5" style="text-align:center;color:#888;padding:20px;">No contribution obligations found</td></tr>')
+        else:
+            for _, row in obligations_df.iterrows():
+                is_paid = row["status"] == "paid"
+                row_class = "paid" if is_paid else "unpaid"
+                status_text = "Paid" if is_paid else "Unpaid"
+                amount = f"${row['amount_cents'] / 100:,.2f}"
+                print(f'    <tr class="{row_class}"><td>{int(row["row_num"])}</td><td>{row["member_id"]}</td><td>{row["member_name"]}</td><td>{status_text}</td><td>{amount}</td></tr>')
+
+        print("""    </tbody>
+  </table>""")
+
+        # ── Footer summary ──
+        print(f"""  <div class="campaign-footer">
+    <div class="footer-stat"><div class="footer-label">Total Members</div><div class="footer-value">{total_members}</div></div>
+    <div class="footer-stat"><div class="footer-label">Paid</div><div class="footer-value green">{paid_count}</div></div>
+    <div class="footer-stat"><div class="footer-label">Unpaid</div><div class="footer-value red">{unpaid_count}</div></div>
+    <div class="footer-stat"><div class="footer-label">Total Collected</div><div class="footer-value green">${total_collected:,.2f}</div></div>
+    <div class="footer-stat"><div class="footer-label">Total Expected</div><div class="footer-value">${total_expected:,.2f}</div></div>
+    <div class="footer-stat"><div class="footer-label">Collection Rate</div><div class="footer-value">{collection_rate:.1f}%</div></div>
+  </div>
+</div>""")
+```
