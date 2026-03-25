@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TRUEFAM Welfare — Executive Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:14px;background:#fff;color:#1a1a1a;height:100vh;display:flex;flex-direction:column}
+.shell{display:flex;flex-direction:column;height:100vh;overflow:hidden}
+.topbar{background:#0f172a;padding:12px 24px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.topbar-title{color:#fff;font-size:15px;font-weight:500}
+.topbar-badge{background:#1D9E75;color:#fff;font-size:11px;padding:3px 10px;border-radius:20px}
+.tabs{display:flex;background:#f8f8f6;border-bottom:0.5px solid rgba(0,0,0,0.1);padding:0 20px;flex-shrink:0}
+.tab{padding:12px 18px;font-size:13px;color:#888;cursor:pointer;border-bottom:2px solid transparent;display:flex;align-items:center;gap:6px;transition:all 0.15s;white-space:nowrap}
+.tab:hover{color:#1a1a1a}
+.tab.active{color:#0F6E56;border-bottom-color:#0F6E56;font-weight:500}
+.body{flex:1;overflow:hidden}
+.page{display:none;padding:20px;height:100%;overflow:hidden}
+.page.active{display:flex;flex-direction:column;gap:16px}
+.kpi-row{display:grid;grid-template-columns:repeat(6,1fr);gap:12px}
+.kpi{background:#f4f4f2;border-radius:10px;padding:14px 16px;position:relative}
+.kpi-dot{position:absolute;top:12px;right:12px;width:8px;height:8px;border-radius:50%}
+.kpi-label{font-size:11px;color:#888;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px}
+.kpi-value{font-size:22px;font-weight:500;color:#1a1a1a;line-height:1}
+.kpi-sub{font-size:11px;color:#aaa;margin-top:5px}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;flex:1}
+.three-col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;flex:1}
+.card{background:#fff;border:0.5px solid rgba(0,0,0,0.1);border-radius:12px;padding:16px;overflow:hidden}
+.card-title{font-size:13px;font-weight:500;color:#1a1a1a;margin-bottom:14px}
+.card-sub{font-size:11px;color:#888;font-weight:400;margin-left:6px}
+.chart-wrap{position:relative;width:100%;height:150px}
+.stat-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:0.5px solid rgba(0,0,0,0.07);font-size:12px}
+.stat-row:last-child{border-bottom:none}
+.stat-label{color:#888}
+.stat-value{font-weight:500;color:#1a1a1a}
+.pipeline-row{display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:0.5px solid rgba(0,0,0,0.07)}
+.pipeline-row:last-child{border-bottom:none}
+.pipeline-stage{width:100px;font-size:12px;color:#888}
+.pipeline-bar-wrap{flex:1;height:16px;background:#f4f4f2;border-radius:4px;overflow:hidden}
+.pipeline-bar{height:100%;border-radius:4px}
+.pipeline-count{width:24px;text-align:right;font-size:12px;font-weight:500}
+.bar-h-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.bar-h-label{width:60px;font-size:11px;color:#888;text-align:right}
+.bar-h-wrap{flex:1;height:18px;background:#f4f4f2;border-radius:4px;overflow:hidden}
+.bar-h-fill{height:100%;border-radius:4px}
+.bar-h-val{width:20px;font-size:11px;font-weight:500}
+.donut-wrap{display:flex;align-items:center;gap:16px}
+.donut-labels{display:flex;flex-direction:column;gap:8px}
+.donut-label-row{display:flex;align-items:center;gap:6px;font-size:12px;color:#888}
+.dot{width:8px;height:8px;border-radius:2px}
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100px;color:#bbb;font-size:12px;gap:8px}
+.pill{display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:500}
+.pill-green{background:#E1F5EE;color:#0F6E56}
+.pill-amber{background:#FAEEDA;color:#854F0B}
+.pill-red{background:#FCEBEB;color:#A32D2D}
+</style>
+</head>
+<body>
+<div class="shell">
+  <div class="topbar">
+    <div class="topbar-title">TRUEFAM Welfare — Executive Dashboard</div>
+    <div class="topbar-badge">Live</div>
+  </div>
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('overview',this)">Overview</div>
+    <div class="tab" onclick="switchTab('membership',this)">Membership</div>
+    <div class="tab" onclick="switchTab('demographics',this)">Demographics</div>
+    <div class="tab" onclick="switchTab('financial',this)">Financial</div>
+    <div class="tab" onclick="switchTab('operations',this)">Operations</div>
+  </div>
+  <div class="body">
+
+    <div id="overview" class="page active">
+      <div class="kpi-row">
+        <div class="kpi"><div class="kpi-dot" style="background:#1D9E75"></div><div class="kpi-label">Active members</div><div class="kpi-value">6</div><div class="kpi-sub">+2 this month</div></div>
+        <div class="kpi"><div class="kpi-dot" style="background:#534AB7"></div><div class="kpi-label">Total revenue</div><div class="kpi-value">$0</div><div class="kpi-sub">No collections yet</div></div>
+        <div class="kpi"><div class="kpi-dot" style="background:#E24B4A"></div><div class="kpi-label">Open claims</div><div class="kpi-value">0</div><div class="kpi-sub">All resolved</div></div>
+        <div class="kpi"><div class="kpi-dot" style="background:#BA7517"></div><div class="kpi-label">Collection rate</div><div class="kpi-value">0.0%</div><div class="kpi-sub">Campaign pending</div></div>
+        <div class="kpi"><div class="kpi-dot" style="background:#888"></div><div class="kpi-label">Pending apps</div><div class="kpi-value">0</div><div class="kpi-sub">Queue clear</div></div>
+        <div class="kpi"><div class="kpi-dot" style="background:#185FA5"></div><div class="kpi-label">Active groups</div><div class="kpi-value">1</div><div class="kpi-sub">TRUEFAM core</div></div>
+      </div>
+      <div class="two-col">
+        <div class="card">
+          <div class="card-title">Key metrics summary</div>
+          <div class="stat-row"><span class="stat-label">Total active members</span><span class="stat-value">6</span></div>
+          <div class="stat-row"><span class="stat-label">Revenue collected</span><span class="stat-value">$0.00</span></div>
+          <div class="stat-row"><span class="stat-label">Open claims</span><span class="stat-value">0</span></div>
+          <div class="stat-row"><span class="stat-label">Campaign collection rate</span><span class="stat-value">0.0%</span></div>
+          <div class="stat-row"><span class="stat-label">Pending applications</span><span class="stat-value">0</span></div>
+          <div class="stat-row"><span class="stat-label">Active groups</span><span class="stat-value">1</span></div>
+          <div class="stat-row"><span class="stat-label">Avg. processing time</span><span class="stat-value">8.5 days</span></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Enrollment pipeline</div>
+          <div class="pipeline-row"><div class="pipeline-stage">Approved</div><div class="pipeline-bar-wrap"><div class="pipeline-bar" style="width:100%;background:#1D9E75"></div></div><div class="pipeline-count">6</div></div>
+          <div class="pipeline-row"><div class="pipeline-stage">Pmt. pending</div><div class="pipeline-bar-wrap"><div class="pipeline-bar" style="width:33%;background:#EF9F27"></div></div><div class="pipeline-count">2</div></div>
+          <div class="pipeline-row"><div class="pipeline-stage">Under review</div><div class="pipeline-bar-wrap"><div class="pipeline-bar" style="width:0%;background:#378ADD"></div></div><div class="pipeline-count">0</div></div>
+          <div class="pipeline-row"><div class="pipeline-stage">Rejected</div><div class="pipeline-bar-wrap"><div class="pipeline-bar" style="width:0%;background:#E24B4A"></div></div><div class="pipeline-count">0</div></div>
+          <div style="margin-top:14px;padding-top:12px;border-top:0.5px solid rgba(0,0,0,0.08);display:flex;gap:12px">
+            <span class="pill pill-green">6 approved</span>
+            <span class="pill pill-amber">2 payment pending</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="membership" class="page">
+      <div class="kpi-row" style="grid-template-columns:repeat(4,1fr)">
+        <div class="kpi"><div class="kpi-label">Total members</div><div class="kpi-value">6</div><div class="kpi-sub">Cumulative</div></div>
+        <div class="kpi"><div class="kpi-label">New this month</div><div class="kpi-value">2</div><div class="kpi-sub">Oct 2025</div></div>
+        <div class="kpi"><div class="kpi-label">Approval rate</div><div class="kpi-value">75%</div><div class="kpi-sub">6 of 8 apps</div></div>
+        <div class="kpi"><div class="kpi-label">Avg. processing</div><div class="kpi-value">8.5d</div><div class="kpi-sub">days to approve</div></div>
+      </div>
+      <div class="two-col">
+        <div class="card"><div class="card-title">Membership growth</div><div class="chart-wrap"><canvas id="growthChart"></canvas></div></div>
+        <div class="card"><div class="card-title">New registrations per month</div><div class="chart-wrap"><canvas id="regChart"></canvas></div></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Enrollment pipeline breakdown</div>
+        <div class="bar-h-row"><div class="bar-h-label">Approved</div><div class="bar-h-wrap"><div class="bar-h-fill" style="width:75%;background:#1D9E75"></div></div><div class="bar-h-val">6</div></div>
+        <div class="bar-h-row"><div class="bar-h-label">Pmt. pend.</div><div class="bar-h-wrap"><div class="bar-h-fill" style="width:25%;background:#EF9F27"></div></div><div class="bar-h-val">2</div></div>
+        <div class="bar-h-row"><div class="bar-h-label">Review</div><div class="bar-h-wrap"><div class="bar-h-fill" style="width:0%;background:#378ADD"></div></div><div class="bar-h-val">0</div></div>
+      </div>
+    </div>
+
+    <div id="demographics" class="page">
+      <div class="kpi-row" style="grid-template-columns:repeat(4,1fr)">
+        <div class="kpi"><div class="kpi-label">Countries</div><div class="kpi-value">1</div><div class="kpi-sub">USA only</div></div>
+        <div class="kpi"><div class="kpi-label">Gender (male)</div><div class="kpi-value">66.7%</div><div class="kpi-sub">4 of 6 members</div></div>
+        <div class="kpi"><div class="kpi-label">Median age</div><div class="kpi-value">46</div><div class="kpi-sub">Range: 40–60</div></div>
+        <div class="kpi"><div class="kpi-label">Married</div><div class="kpi-value">83.3%</div><div class="kpi-sub">5 of 6 members</div></div>
+      </div>
+      <div class="two-col">
+        <div class="card"><div class="card-title">Gender distribution</div><div class="donut-wrap"><canvas id="genderChart" width="110" height="110"></canvas><div class="donut-labels"><div class="donut-label-row"><span class="dot" style="background:#378ADD"></span>Male 66.7%</div><div class="donut-label-row"><span class="dot" style="background:#1D9E75"></span>Female 33.3%</div></div></div></div>
+        <div class="card"><div class="card-title">Marital status</div><div class="donut-wrap"><canvas id="maritalChart" width="110" height="110"></canvas><div class="donut-labels"><div class="donut-label-row"><span class="dot" style="background:#378ADD"></span>Married 83.3%</div><div class="donut-label-row"><span class="dot" style="background:#1D9E75"></span>Single 16.7%</div></div></div></div>
+      </div>
+      <div class="two-col">
+        <div class="card"><div class="card-title">Age distribution</div><div class="chart-wrap"><canvas id="ageChart"></canvas></div></div>
+        <div class="card">
+          <div class="card-title">Members by country</div>
+          <div class="bar-h-row"><div class="bar-h-label">USA</div><div class="bar-h-wrap"><div class="bar-h-fill" style="width:100%;background:#534AB7"></div></div><div class="bar-h-val">6</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="financial" class="page">
+      <div class="kpi-row" style="grid-template-columns:repeat(4,1fr)">
+        <div class="kpi"><div class="kpi-label">Total collected</div><div class="kpi-value">$0</div><div class="kpi-sub">No revenue yet</div></div>
+        <div class="kpi"><div class="kpi-label">Plan</div><div class="kpi-value">Basic</div><div class="kpi-sub">100% of members</div></div>
+        <div class="kpi"><div class="kpi-label">Collection rate</div><div class="kpi-value">0.0%</div><div class="kpi-sub">Campaigns pending</div></div>
+        <div class="kpi"><div class="kpi-label">Last campaign</div><div class="kpi-value">—</div><div class="kpi-sub">No data</div></div>
+      </div>
+      <div class="two-col">
+        <div class="card"><div class="card-title">Monthly revenue</div><div class="empty-state">No revenue data available</div></div>
+        <div class="card"><div class="card-title">Subscription plan distribution</div><div class="donut-wrap"><canvas id="planChart" width="110" height="110"></canvas><div class="donut-labels"><div class="donut-label-row"><span class="dot" style="background:#378ADD"></span>Basic 100%</div></div></div></div>
+      </div>
+      <div class="card"><div class="card-title">Campaign collection details</div><div class="empty-state">No campaign data available</div></div>
+    </div>
+
+    <div id="operations" class="page">
+      <div class="kpi-row" style="grid-template-columns:repeat(4,1fr)">
+        <div class="kpi"><div class="kpi-label">Open claims</div><div class="kpi-value">0</div><div class="kpi-sub">All clear</div></div>
+        <div class="kpi"><div class="kpi-label">Referrals sent</div><div class="kpi-value">0</div><div class="kpi-sub">No data</div></div>
+        <div class="kpi"><div class="kpi-label">Claims resolved</div><div class="kpi-value">0</div><div class="kpi-sub">No history</div></div>
+        <div class="kpi"><div class="kpi-label">Referral conversion</div><div class="kpi-value">—</div><div class="kpi-sub">Pending data</div></div>
+      </div>
+      <div class="three-col">
+        <div class="card"><div class="card-title">Claims by status</div><div class="empty-state">No claims data</div><div class="stat-row"><span class="stat-label">Status</span><span class="pill pill-green">All clear</span></div></div>
+        <div class="card"><div class="card-title">Claims over time</div><div class="empty-state">No claims timeline</div></div>
+        <div class="card"><div class="card-title">Referral programme</div><div class="empty-state">No referral data</div><div class="stat-row"><span class="stat-label">Status</span><span class="pill pill-amber">Not started</span></div></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+function switchTab(id,el){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));document.getElementById(id).classList.add('active');el.classList.add('active');}
+const months=['Jun 29','Jul 13','Jul 27','Aug 10','Aug 24','Sep 7','Sep 21','Oct 5','Oct 19'];
+new Chart(document.getElementById('growthChart'),{type:'line',data:{labels:months,datasets:[{label:'Members',data:[2,2,2,2,2,3,4,5,6],fill:true,backgroundColor:'rgba(29,158,117,0.12)',borderColor:'#1D9E75',borderWidth:2,pointRadius:3,tension:0.4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{font:{size:10},color:'#888',maxRotation:45},grid:{color:'rgba(0,0,0,0.04)'}},y:{ticks:{font:{size:10},color:'#888'},grid:{color:'rgba(0,0,0,0.04)'},min:0,max:8}}}});
+new Chart(document.getElementById('regChart'),{type:'bar',data:{labels:['Jun 29','Jul 13','Aug 24','Sep 21','Oct 5'],datasets:[{label:'Registrations',data:[2,0,2,1,1],backgroundColor:'#1D9E75',borderRadius:4,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{font:{size:10},color:'#888'},grid:{display:false}},y:{ticks:{font:{size:10},color:'#888',stepSize:1},grid:{color:'rgba(0,0,0,0.04)'},min:0,max:3}}}});
+function donut(id,data,colors){new Chart(document.getElementById(id),{type:'doughnut',data:{datasets:[{data,backgroundColor:colors,borderWidth:0}]},options:{responsive:false,cutout:'68%',plugins:{legend:{display:false},tooltip:{enabled:false}}}});}
+donut('genderChart',[66.7,33.3],['#378ADD','#1D9E75']);
+donut('maritalChart',[83.3,16.7],['#378ADD','#1D9E75']);
+donut('planChart',[100,0.001],['#378ADD','#E6F1FB']);
+new Chart(document.getElementById('ageChart'),{type:'bar',data:{labels:['40–44','45–49','50–54','55–59','60–64'],datasets:[{label:'Members',data:[2,1,0,0,1],backgroundColor:'#EF9F27',borderRadius:4,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{font:{size:10},color:'#888'},grid:{display:false}},y:{ticks:{font:{size:10},color:'#888',stepSize:1},grid:{color:'rgba(0,0,0,0.04)'},min:0,max:3}}}});
+</script>
+</body>
+</html>
