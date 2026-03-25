@@ -1,0 +1,376 @@
+---
+title: "TRUEFAM Welfare — GA4 Web Analytics"
+format:
+  html:
+    embed-resources: true
+    theme: flatly
+    toc: false
+    page-layout: full
+---
+
+```{python}
+#| label: setup
+#| include: false
+
+import sys, os
+from pathlib import Path
+from datetime import date, datetime, timedelta
+
+sys.path.insert(0, str(Path(os.path.abspath("")).resolve()))
+sys.path.insert(0, str(Path(os.path.abspath("")).resolve().parent / "reports"))
+
+from ga4_connection import (
+    _ga4_available, get_headline_kpis, get_traffic_by_channel,
+    get_traffic_over_time, get_top_pages, get_geo_data,
+    get_device_data, get_demographics, get_funnel_data,
+    DEFAULT_START, DEFAULT_END,
+)
+import pandas as pd
+from IPython.display import display, HTML
+
+now = datetime.now().strftime("%B %d, %Y at %I:%M %p")
+period_start = datetime.fromisoformat(DEFAULT_START).strftime("%b %d, %Y")
+period_end = datetime.fromisoformat(DEFAULT_END).strftime("%b %d, %Y")
+ga4_live = _ga4_available()
+
+# ── Fetch all data ──
+kpis = get_headline_kpis()
+channels = get_traffic_by_channel()
+daily_traffic = get_traffic_over_time()
+top_pages = get_top_pages()
+geo = get_geo_data()
+devices = get_device_data()
+demographics = get_demographics()
+funnel = get_funnel_data()
+```
+
+```{python}
+#| label: styles
+#| echo: false
+
+display(HTML("""
+<style>
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f5f4f0;color:#1a1a2e;font-size:14px}
+.ga4-page{max-width:900px;margin:0 auto;padding:24px 16px}
+.ga4-topbar{background:#0f172a;border-radius:14px;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+.ga4-topbar-left{display:flex;align-items:center;gap:10px}
+.ga4-topbar-title{color:#fff;font-size:16px;font-weight:600}
+.ga4-topbar-sub{color:#E8A020;font-size:10px;letter-spacing:1.5px;font-weight:500}
+.ga4-badge{padding:3px 10px;border-radius:20px;font-size:10px;font-weight:600;color:#fff}
+.ga4-badge-live{background:#1D9E75}
+.ga4-badge-demo{background:#E8A020}
+.ga4-meta{text-align:center;font-size:11px;color:#aaa;margin-bottom:20px;line-height:1.6}
+.ga4-meta a{color:#1D9E75;text-decoration:none}
+.ga4-section{margin-bottom:24px}
+.ga4-section-title{font-size:11px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:10px;padding-left:2px}
+.ga4-kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:16px}
+.ga4-kpi{background:#fff;border-radius:12px;padding:14px 16px;border:0.5px solid rgba(0,0,0,0.07);position:relative}
+.ga4-kpi-dot{position:absolute;top:12px;right:12px;width:7px;height:7px;border-radius:50%}
+.ga4-kpi-label{font-size:10px;color:#999;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:5px;line-height:1.3}
+.ga4-kpi-value{font-size:22px;font-weight:600;color:#1a3a5c;line-height:1}
+.ga4-kpi-sub{font-size:10px;color:#bbb;margin-top:4px}
+.ga4-card{background:#fff;border-radius:12px;padding:16px;border:0.5px solid rgba(0,0,0,0.07);margin-bottom:12px}
+.ga4-card-title{font-size:13px;font-weight:600;color:#1a3a5c;margin-bottom:12px}
+.ga4-card-sub{font-size:11px;color:#aaa;font-weight:400;margin-left:6px}
+.ga4-stat-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:0.5px solid rgba(0,0,0,0.06);font-size:12px}
+.ga4-stat-row:last-child{border-bottom:none}
+.ga4-stat-label{color:#888;flex:1}
+.ga4-stat-value{font-weight:600;color:#1a3a5c;flex-shrink:0}
+.ga4-bar-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.ga4-bar-label{width:100px;font-size:11px;color:#888;text-align:right;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ga4-bar-wrap{flex:1;height:18px;background:#f4f4f2;border-radius:4px;overflow:hidden}
+.ga4-bar-fill{height:100%;border-radius:4px;min-width:2px}
+.ga4-bar-val{width:40px;font-size:11px;font-weight:600;color:#1a3a5c;flex-shrink:0}
+.ga4-funnel-step{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:0.5px solid rgba(0,0,0,0.06)}
+.ga4-funnel-step:last-child{border-bottom:none}
+.ga4-funnel-num{width:28px;height:28px;border-radius:50%;background:#1a3a5c;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex-shrink:0}
+.ga4-funnel-info{flex:1}
+.ga4-funnel-label{font-size:13px;font-weight:500;color:#1a3a5c}
+.ga4-funnel-bar{height:8px;background:#f4f4f2;border-radius:4px;margin-top:4px;overflow:hidden}
+.ga4-funnel-bar-fill{height:100%;border-radius:4px;background:#1D9E75}
+.ga4-funnel-count{font-size:14px;font-weight:600;color:#1a3a5c;flex-shrink:0;width:50px;text-align:right}
+.ga4-funnel-rate{font-size:10px;color:#888;text-align:right;width:50px;flex-shrink:0}
+.ga4-donut-row{display:flex;align-items:center;gap:16px}
+.ga4-donut-legs{display:flex;flex-direction:column;gap:7px;flex:1}
+.ga4-donut-leg{display:flex;align-items:center;gap:6px;font-size:12px;color:#888}
+.ga4-leg-dot{width:8px;height:8px;border-radius:2px;flex-shrink:0}
+.ga4-empty{display:flex;align-items:center;justify-content:center;height:80px;font-size:12px;color:#ccc;font-style:italic}
+.ga4-pill{display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:500}
+.ga4-pill-green{background:#E1F5EE;color:#0F6E56}
+.ga4-pill-amber{background:#FAEEDA;color:#854F0B}
+.ga4-pill-red{background:#FCEBEB;color:#A32D2D}
+.ga4-two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.ga4-footer{text-align:center;font-size:11px;color:#bbb;margin-top:16px;padding-bottom:8px;line-height:1.8}
+.ga4-footer a{color:#1D9E75;text-decoration:none}
+.ga4-pending-banner{background:#FAEEDA;border:1px solid #E8A020;border-radius:10px;padding:12px 16px;text-align:center;margin-bottom:16px}
+.ga4-pending-title{font-size:11px;font-weight:700;color:#854F0B;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:3px}
+.ga4-pending-body{font-size:11px;color:#a07020;line-height:1.5}
+#quarto-header,.quarto-title-block{display:none}
+@media(max-width:640px){.ga4-two-col{grid-template-columns:1fr}.ga4-kpi-grid{grid-template-columns:1fr 1fr}}
+</style>
+"""))
+```
+
+```{python}
+#| label: report
+#| echo: false
+
+COLORS = ["#378ADD", "#1D9E75", "#EF9F27", "#E24B4A", "#534AB7", "#EC4899", "#06B6D4", "#84CC16"]
+
+def fmt_num(n):
+    if isinstance(n, float):
+        if n > 100:
+            return f"{n:,.0f}"
+        return f"{n:.1f}"
+    return f"{int(n):,}" if n else "0"
+
+def fmt_pct(n):
+    return f"{float(n)*100:.1f}%" if n else "0.0%"
+
+def fmt_dur(seconds):
+    s = float(seconds)
+    if s < 60:
+        return f"{s:.0f}s"
+    m = int(s // 60)
+    sec = int(s % 60)
+    return f"{m}m {sec}s"
+
+# ── Status badge ──
+badge_class = "ga4-badge-live" if ga4_live else "ga4-badge-demo"
+badge_text = "Live" if ga4_live else "Awaiting GA4 Setup"
+
+html = f"""
+<div class="ga4-page">
+
+  <div class="ga4-topbar">
+    <div class="ga4-topbar-left">
+      <img src="truefam-logo.png" alt="TRUEFAM" style="height:36px;">
+      <div>
+        <div class="ga4-topbar-title">Web Analytics Report</div>
+        <div class="ga4-topbar-sub">GA4 &middot; TRUEFAMWEL.COM</div>
+      </div>
+    </div>
+    <div class="ga4-badge {badge_class}">{badge_text}</div>
+  </div>
+
+  <div class="ga4-meta">
+    Reporting period: {period_start} &mdash; {period_end} &nbsp;&middot;&nbsp; Generated {now}<br>
+    <a href="https://www.truefamwelfare.com" target="_blank">www.truefamwelfare.com</a>
+  </div>
+"""
+
+# ── Pending banner if no GA4 ──
+if not ga4_live:
+    html += """
+  <div class="ga4-pending-banner">
+    <div class="ga4-pending-title">GA4 Configuration Pending</div>
+    <div class="ga4-pending-body">This report is ready to pull live data. Configure GA4_PROPERTY_ID and GOOGLE_APPLICATION_CREDENTIALS in .env to activate. All values below are placeholders.</div>
+  </div>
+"""
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SECTION 1 — Executive Snapshot
+# ══════════════════════════════════════════════════════════════════════════════
+html += f"""
+  <div class="ga4-section">
+    <div class="ga4-section-title">1 &mdash; Executive Snapshot</div>
+    <div class="ga4-kpi-grid">
+      <div class="ga4-kpi"><div class="ga4-kpi-dot" style="background:#378ADD"></div><div class="ga4-kpi-label">Total Users</div><div class="ga4-kpi-value">{fmt_num(kpis['totalUsers'])}</div><div class="ga4-kpi-sub">Last 28 days</div></div>
+      <div class="ga4-kpi"><div class="ga4-kpi-dot" style="background:#1D9E75"></div><div class="ga4-kpi-label">New Users</div><div class="ga4-kpi-value">{fmt_num(kpis['newUsers'])}</div><div class="ga4-kpi-sub">First-time visitors</div></div>
+      <div class="ga4-kpi"><div class="ga4-kpi-dot" style="background:#534AB7"></div><div class="ga4-kpi-label">Sessions</div><div class="ga4-kpi-value">{fmt_num(kpis['sessions'])}</div><div class="ga4-kpi-sub">Total visits</div></div>
+      <div class="ga4-kpi"><div class="ga4-kpi-dot" style="background:#EF9F27"></div><div class="ga4-kpi-label">Avg. Session</div><div class="ga4-kpi-value">{fmt_dur(kpis['averageSessionDuration'])}</div><div class="ga4-kpi-sub">Engagement time</div></div>
+      <div class="ga4-kpi"><div class="ga4-kpi-dot" style="background:#E24B4A"></div><div class="ga4-kpi-label">Bounce Rate</div><div class="ga4-kpi-value">{fmt_pct(kpis['bounceRate'])}</div><div class="ga4-kpi-sub">Single-page visits</div></div>
+      <div class="ga4-kpi"><div class="ga4-kpi-dot" style="background:#EC4899"></div><div class="ga4-kpi-label">Engagement Rate</div><div class="ga4-kpi-value">{fmt_pct(kpis['engagementRate'])}</div><div class="ga4-kpi-sub">10s+ or 2+ pages</div></div>
+      <div class="ga4-kpi"><div class="ga4-kpi-dot" style="background:#06B6D4"></div><div class="ga4-kpi-label">Page Views</div><div class="ga4-kpi-value">{fmt_num(kpis['screenPageViews'])}</div><div class="ga4-kpi-sub">Total pages viewed</div></div>
+      <div class="ga4-kpi"><div class="ga4-kpi-dot" style="background:#84CC16"></div><div class="ga4-kpi-label">Conversions</div><div class="ga4-kpi-value">{fmt_num(kpis['conversions'])}</div><div class="ga4-kpi-sub">Key events</div></div>
+    </div>
+  </div>
+"""
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SECTION 2 — Traffic Acquisition
+# ══════════════════════════════════════════════════════════════════════════════
+html += """
+  <div class="ga4-section">
+    <div class="ga4-section-title">2 &mdash; Traffic Acquisition</div>
+"""
+
+if channels.empty:
+    html += """
+    <div class="ga4-card">
+      <div class="ga4-card-title">Sessions by Channel</div>
+      <div class="ga4-empty">No channel data &mdash; GA4 configuration pending</div>
+    </div>
+"""
+else:
+    max_sessions = channels["sessions"].max() if not channels.empty else 1
+    html += '    <div class="ga4-card"><div class="ga4-card-title">Sessions by Channel</div>\n'
+    for i, (_, row) in enumerate(channels.iterrows()):
+        pct = (row["sessions"] / max_sessions * 100) if max_sessions > 0 else 0
+        color = COLORS[i % len(COLORS)]
+        html += f'      <div class="ga4-bar-row"><div class="ga4-bar-label">{row["sessionDefaultChannelGroup"]}</div><div class="ga4-bar-wrap"><div class="ga4-bar-fill" style="width:{pct:.0f}%;background:{color}"></div></div><div class="ga4-bar-val">{fmt_num(row["sessions"])}</div></div>\n'
+    html += '    </div>\n'
+
+html += '    <div class="ga4-card"><div class="ga4-card-title">Daily Sessions</div>'
+if daily_traffic.empty:
+    html += '<div class="ga4-empty">No daily traffic data &mdash; GA4 configuration pending</div>'
+else:
+    html += '<div class="ga4-empty">Chart renders with live GA4 data</div>'
+html += '</div>\n  </div>\n'
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SECTION 3 — Audience & Demographics
+# ══════════════════════════════════════════════════════════════════════════════
+html += """
+  <div class="ga4-section">
+    <div class="ga4-section-title">3 &mdash; Audience &amp; Demographics</div>
+    <div class="ga4-two-col">
+"""
+
+# Geography
+html += '      <div class="ga4-card"><div class="ga4-card-title">Users by Country</div>\n'
+if geo.empty:
+    html += '        <div class="ga4-empty">No geographic data &mdash; GA4 configuration pending</div>\n'
+else:
+    max_geo = geo["totalUsers"].max() if not geo.empty else 1
+    for i, (_, row) in enumerate(geo.head(8).iterrows()):
+        pct = (row["totalUsers"] / max_geo * 100) if max_geo > 0 else 0
+        color = COLORS[i % len(COLORS)]
+        html += f'        <div class="ga4-bar-row"><div class="ga4-bar-label">{row["country"]}</div><div class="ga4-bar-wrap"><div class="ga4-bar-fill" style="width:{pct:.0f}%;background:{color}"></div></div><div class="ga4-bar-val">{fmt_num(row["totalUsers"])}</div></div>\n'
+html += '      </div>\n'
+
+# Devices
+html += '      <div class="ga4-card"><div class="ga4-card-title">Device Breakdown</div>\n'
+if devices.empty:
+    html += '        <div class="ga4-empty">No device data &mdash; GA4 configuration pending</div>\n'
+else:
+    max_dev = devices["totalUsers"].max() if not devices.empty else 1
+    for i, (_, row) in enumerate(devices.iterrows()):
+        pct = (row["totalUsers"] / max_dev * 100) if max_dev > 0 else 0
+        color = COLORS[i % len(COLORS)]
+        html += f'        <div class="ga4-bar-row"><div class="ga4-bar-label">{row["deviceCategory"].capitalize()}</div><div class="ga4-bar-wrap"><div class="ga4-bar-fill" style="width:{pct:.0f}%;background:{color}"></div></div><div class="ga4-bar-val">{fmt_num(row["totalUsers"])}</div></div>\n'
+html += '      </div>\n'
+
+html += '    </div>\n'  # close two-col
+
+# Age & Gender
+html += '    <div class="ga4-two-col">\n'
+age_df = demographics["age"]
+gender_df = demographics["gender"]
+
+html += '      <div class="ga4-card"><div class="ga4-card-title">Age Distribution</div>\n'
+if age_df.empty:
+    html += '        <div class="ga4-empty">No age data &mdash; requires Google Signals</div>\n'
+else:
+    max_age = age_df["totalUsers"].max() if not age_df.empty else 1
+    for i, (_, row) in enumerate(age_df.iterrows()):
+        pct = (row["totalUsers"] / max_age * 100) if max_age > 0 else 0
+        html += f'        <div class="ga4-bar-row"><div class="ga4-bar-label">{row["userAgeBracket"]}</div><div class="ga4-bar-wrap"><div class="ga4-bar-fill" style="width:{pct:.0f}%;background:#534AB7"></div></div><div class="ga4-bar-val">{fmt_num(row["totalUsers"])}</div></div>\n'
+html += '      </div>\n'
+
+html += '      <div class="ga4-card"><div class="ga4-card-title">Gender</div>\n'
+if gender_df.empty:
+    html += '        <div class="ga4-empty">No gender data &mdash; requires Google Signals</div>\n'
+else:
+    max_gen = gender_df["totalUsers"].max() if not gender_df.empty else 1
+    for i, (_, row) in enumerate(gender_df.iterrows()):
+        pct = (row["totalUsers"] / max_gen * 100) if max_gen > 0 else 0
+        color = COLORS[i % len(COLORS)]
+        html += f'        <div class="ga4-bar-row"><div class="ga4-bar-label">{row["userGender"].capitalize()}</div><div class="ga4-bar-wrap"><div class="ga4-bar-fill" style="width:{pct:.0f}%;background:{color}"></div></div><div class="ga4-bar-val">{fmt_num(row["totalUsers"])}</div></div>\n'
+html += '      </div>\n'
+html += '    </div>\n  </div>\n'
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SECTION 4 — Engagement & Content Performance
+# ══════════════════════════════════════════════════════════════════════════════
+html += """
+  <div class="ga4-section">
+    <div class="ga4-section-title">4 &mdash; Engagement &amp; Content Performance</div>
+    <div class="ga4-card">
+      <div class="ga4-card-title">Top Pages by Views</div>
+"""
+
+if top_pages.empty:
+    html += '      <div class="ga4-empty">No page data &mdash; GA4 configuration pending</div>\n'
+else:
+    for _, row in top_pages.head(10).iterrows():
+        path = row["pagePath"]
+        title = row.get("pageTitle", path)
+        views = fmt_num(row["screenPageViews"])
+        eng = fmt_pct(row["engagementRate"])
+        dur = fmt_dur(row["averageSessionDuration"])
+        html += f"""      <div class="ga4-stat-row">
+        <span class="ga4-stat-label" style="font-weight:500;color:#1a3a5c">{path}</span>
+        <span style="font-size:11px;color:#888;margin-right:12px">{eng} eng.</span>
+        <span class="ga4-stat-value">{views}</span>
+      </div>\n"""
+
+html += '    </div>\n  </div>\n'
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SECTION 5 — Enrollment Conversion Funnel
+# ══════════════════════════════════════════════════════════════════════════════
+html += """
+  <div class="ga4-section">
+    <div class="ga4-section-title">5 &mdash; Enrollment Conversion Funnel</div>
+    <div class="ga4-card">
+"""
+
+max_funnel = max((s["count"] for s in funnel), default=1) or 1
+for step in funnel:
+    pct = (step["count"] / max_funnel * 100) if max_funnel > 0 else 0
+    rate_vs_prev = ""
+    if step["step"] > 1 and funnel[step["step"]-2]["count"] > 0:
+        r = step["count"] / funnel[step["step"]-2]["count"] * 100
+        rate_vs_prev = f"{r:.0f}%"
+    html += f"""      <div class="ga4-funnel-step">
+        <div class="ga4-funnel-num">{step['step']}</div>
+        <div class="ga4-funnel-info">
+          <div class="ga4-funnel-label">{step['label']}</div>
+          <div class="ga4-funnel-bar"><div class="ga4-funnel-bar-fill" style="width:{pct:.0f}%"></div></div>
+        </div>
+        <div class="ga4-funnel-count">{fmt_num(step['count'])}</div>
+        <div class="ga4-funnel-rate">{rate_vs_prev}</div>
+      </div>\n"""
+
+html += '    </div>\n  </div>\n'
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SECTION 6 — Period-over-Period Trends
+# ══════════════════════════════════════════════════════════════════════════════
+html += """
+  <div class="ga4-section">
+    <div class="ga4-section-title">6 &mdash; Period-over-Period Trends</div>
+    <div class="ga4-card">
+      <div class="ga4-card-title">28-Day Comparison</div>
+      <div class="ga4-stat-row"><span class="ga4-stat-label">Total Users</span><span class="ga4-stat-value">""" + fmt_num(kpis['totalUsers']) + """ <span style="font-size:10px;color:#bbb">vs prior period</span></span></div>
+      <div class="ga4-stat-row"><span class="ga4-stat-label">Sessions</span><span class="ga4-stat-value">""" + fmt_num(kpis['sessions']) + """ <span style="font-size:10px;color:#bbb">vs prior period</span></span></div>
+      <div class="ga4-stat-row"><span class="ga4-stat-label">Engagement Rate</span><span class="ga4-stat-value">""" + fmt_pct(kpis['engagementRate']) + """ <span style="font-size:10px;color:#bbb">vs prior period</span></span></div>
+      <div class="ga4-stat-row"><span class="ga4-stat-label">Conversions</span><span class="ga4-stat-value">""" + fmt_num(kpis['conversions']) + """ <span style="font-size:10px;color:#bbb">vs prior period</span></span></div>
+    </div>
+"""
+
+if not ga4_live:
+    html += """
+    <div class="ga4-card">
+      <div class="ga4-card-title">Trend Charts</div>
+      <div class="ga4-empty">Period-over-period charts will render with live GA4 data</div>
+    </div>
+"""
+
+html += '  </div>\n'
+
+# ── Footer ──
+html += """
+  <div class="ga4-footer">
+    TRUEFAM Welfare &nbsp;&middot;&nbsp;
+    <a href="https://www.truefamwelfare.com">www.truefamwelfare.com</a> &nbsp;&middot;&nbsp;
+    Data source: Google Analytics 4<br>
+    Report auto-generated &mdash; do not manually edit
+  </div>
+
+</div>
+"""
+
+display(HTML(html))
+```
