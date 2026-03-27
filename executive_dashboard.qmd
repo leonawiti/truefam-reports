@@ -1,0 +1,551 @@
+---
+title: "TRUEFAM Welfare — Executive Dashboard"
+format:
+  dashboard:
+    orientation: rows
+    theme: flatly
+    nav-buttons:
+      - icon: github
+        href: https://github.com/truefam
+    embed-resources: true
+---
+
+```{python}
+#| label: setup
+#| include: false
+
+import sys, os
+from pathlib import Path
+
+# Ensure the reports directory is importable
+sys.path.insert(0, str(Path(os.path.abspath("")).resolve()))
+sys.path.insert(0, str(Path(os.path.abspath("")).resolve().parent / "reports"))
+
+from db_connection import query
+import pandas as pd
+import plotly.express as px
+import plotly.graph_objects as go
+from datetime import date
+
+# ── Colour palette ──────────────────────────────────────────────────────────
+COLORS = ["#2563eb", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#06b6d4", "#84cc16"]
+BG = "rgba(0,0,0,0)"
+
+# ── Data queries ────────────────────────────────────────────────────────────
+
+# 1 — Headline KPIs
+df_active = query("""
+    SELECT COUNT(*) AS n
+    FROM enrollment_enrollmentapplication
+    WHERE status = 'approved'
+""")
+total_active_members = int(df_active["n"].iloc[0])
+
+df_revenue = query("""
+    SELECT COALESCE(SUM(amount_usd), 0) AS total
+    FROM payments_payment
+    WHERE status = 'paid'
+""")
+total_revenue = float(df_revenue["total"].iloc[0])
+
+df_open_claims = query("""
+    SELECT COUNT(*) AS n FROM claims_claim WHERE status = 'pending'
+""")
+open_claims = int(df_open_claims["n"].iloc[0])
+
+df_collection = query("""
+    SELECT
+        COALESCE(SUM(total_collected_cents), 0) AS collected,
+        COALESCE(SUM(total_expected_cents), 0) AS expected
+    FROM claims_contributioncampaign
+    WHERE status IN ('open', 'closed')
+""")
+collected = int(df_collection["collected"].iloc[0])
+expected = int(df_collection["expected"].iloc[0])
+collection_rate = round(collected / expected * 100, 1) if expected > 0 else 0.0
+
+df_pending_apps = query("""
+    SELECT COUNT(*) AS n
+    FROM enrollment_enrollmentapplication
+    WHERE status IN ('pending', 'under_review')
+""")
+pending_apps = int(df_pending_apps["n"].iloc[0])
+
+df_groups = query("""
+    SELECT COUNT(*) AS n FROM members_membergroup WHERE is_active = true
+""")
+active_groups = int(df_groups["n"].iloc[0])
+
+# 2 — Membership growth (monthly cumulative)
+df_growth = query("""
+    SELECT
+        DATE_TRUNC('month', m.membership_start_date) AS month,
+        COUNT(*) AS new_members
+    FROM members_member m
+    INNER JOIN enrollment_enrollmentapplication e ON e.member_id = m.id
+    WHERE e.status = 'approved' AND m.membership_start_date IS NOT NULL
+    GROUP BY 1 ORDER BY 1
+""")
+if not df_growth.empty:
+    df_growth["month"] = pd.to_datetime(df_growth["month"])
+    df_growth["cumulative"] = df_growth["new_members"].cumsum()
+
+# 3 — Registrations per month
+df_registrations = query("""
+    SELECT DATE_TRUNC('month', date_joined) AS month, COUNT(*) AS registrations
+    FROM accounts_user
+    GROUP BY 1 ORDER BY 1
+""")
+if not df_registrations.empty:
+    df_registrations["month"] = pd.to_datetime(df_registrations["month"])
+
+# 4 — Enrollment funnel
+df_funnel = query("""
+    SELECT status, COUNT(*) AS count
+    FROM enrollment_enrollmentapplication
+    GROUP BY status ORDER BY count DESC
+""")
+
+# 5 — Avg processing time (approved applications)
+df_proc = query("""
+    SELECT ROUND(AVG(EXTRACT(EPOCH FROM (processed_at - submitted_at)) / 86400)::numeric, 1) AS avg_days
+    FROM enrollment_enrollmentapplication
+    WHERE status = 'approved' AND processed_at IS NOT NULL
+""")
+avg_processing_days = float(df_proc["avg_days"].iloc[0]) if not df_proc.empty and df_proc["avg_days"].iloc[0] is not None else 0
+
+# 6 — Geographic distribution
+df_geo = query("""
+    SELECT m.country_of_residence AS country, COUNT(*) AS members
+    FROM members_member m
+    INNER JOIN enrollment_enrollmentapplication e ON e.member_id = m.id
+    WHERE e.status = 'approved'
+    GROUP BY 1 ORDER BY 2 DESC
+""")
+
+# 7 — Gender distribution
+df_gender = query("""
+    SELECT
+        CASE WHEN m.gender = '' OR m.gender IS NULL THEN 'Not specified' ELSE INITCAP(m.gender) END AS gender,
+        COUNT(*) AS count
+    FROM members_member m
+    INNER JOIN enrollment_enrollmentapplication e ON e.member_id = m.id
+    WHERE e.status = 'approved'
+    GROUP BY 1
+""")
+
+# 8 — Age distribution
+df_age = query(f"""
+    SELECT
+        EXTRACT(YEAR FROM AGE(CURRENT_DATE, m.date_of_birth))::int AS age
+    FROM members_member m
+    INNER JOIN enrollment_enrollmentapplication e ON e.member_id = m.id
+    WHERE e.status = 'approved' AND m.date_of_birth IS NOT NULL
+""")
+
+# 9 — Marital status
+df_marital = query("""
+    SELECT
+        CASE WHEN m.marital_status = '' OR m.marital_status IS NULL THEN 'Not specified' ELSE INITCAP(m.marital_status) END AS status,
+        COUNT(*) AS count
+    FROM members_member m
+    INNER JOIN enrollment_enrollmentapplication e ON e.member_id = m.id
+    WHERE e.status = 'approved'
+    GROUP BY 1 ORDER BY 2 DESC
+""")
+
+# 10 — Revenue by month
+df_rev_month = query("""
+    SELECT DATE_TRUNC('month', date) AS month, SUM(amount_usd) AS revenue
+    FROM payments_payment
+    WHERE status = 'paid'
+    GROUP BY 1 ORDER BY 1
+""")
+if not df_rev_month.empty:
+    df_rev_month["month"] = pd.to_datetime(df_rev_month["month"])
+
+# 11 — Plan distribution (name lives on parent table payments_stripeproduct)
+df_plans = query("""
+    SELECT sp.name AS plan, COUNT(*) AS subscribers
+    FROM payments_membersubscription ms
+    INNER JOIN payments_annualsubscriptionplan p ON p.stripeproduct_ptr_id = ms.plan_id
+    INNER JOIN payments_stripeproduct sp ON sp.id = p.stripeproduct_ptr_id
+    WHERE ms.status IN ('active', 'paid')
+    GROUP BY 1 ORDER BY 2 DESC
+""")
+
+# 12 — Claims by status
+df_claims_status = query("""
+    SELECT status, COUNT(*) AS count
+    FROM claims_claim
+    GROUP BY status ORDER BY count DESC
+""")
+
+# 13 — Claims over time
+df_claims_time = query("""
+    SELECT DATE_TRUNC('month', submitted_at) AS month, COUNT(*) AS claims
+    FROM claims_claim
+    GROUP BY 1 ORDER BY 1
+""")
+if not df_claims_time.empty:
+    df_claims_time["month"] = pd.to_datetime(df_claims_time["month"])
+
+# 14 — Referrals (table may not exist in production yet)
+try:
+    df_referrals = query("""
+        SELECT status, COUNT(*) AS count
+        FROM referrals_referral
+        GROUP BY status ORDER BY count DESC
+    """)
+except Exception:
+    df_referrals = pd.DataFrame(columns=["status", "count"])
+
+# 15 — Campaign collection details
+df_campaigns = query("""
+    SELECT
+        cc.id,
+        cc.title,
+        cc.status,
+        cc.obligations_count,
+        cc.paid_count,
+        cc.total_expected_cents,
+        cc.total_collected_cents,
+        CASE WHEN cc.total_expected_cents > 0
+             THEN ROUND(cc.total_collected_cents::numeric / cc.total_expected_cents * 100, 1)
+             ELSE 0 END AS pct_collected
+    FROM claims_contributioncampaign cc
+    ORDER BY cc.started_at DESC
+    LIMIT 20
+""")
+```
+
+## Row {height=20%}
+
+```{python}
+#| content: valuebox
+#| title: "Active Members"
+dict(
+    icon="people-fill",
+    color="primary",
+    value=f"{total_active_members:,}"
+)
+```
+
+```{python}
+#| content: valuebox
+#| title: "Total Revenue"
+dict(
+    icon="currency-dollar",
+    color="success",
+    value=f"${total_revenue:,.2f}"
+)
+```
+
+```{python}
+#| content: valuebox
+#| title: "Open Claims"
+dict(
+    icon="exclamation-triangle-fill",
+    color="warning",
+    value=f"{open_claims:,}"
+)
+```
+
+```{python}
+#| content: valuebox
+#| title: "Campaign Collection Rate"
+dict(
+    icon="graph-up-arrow",
+    color="info",
+    value=f"{collection_rate}%"
+)
+```
+
+```{python}
+#| content: valuebox
+#| title: "Pending Applications"
+dict(
+    icon="hourglass-split",
+    color="light",
+    value=f"{pending_apps:,}"
+)
+```
+
+```{python}
+#| content: valuebox
+#| title: "Active Groups"
+dict(
+    icon="diagram-3-fill",
+    color="dark",
+    value=f"{active_groups:,}"
+)
+```
+
+## Row {height=40%}
+
+### Column {width=60%}
+
+```{python}
+#| title: "Membership Growth (Cumulative)"
+if not df_growth.empty:
+    fig = px.area(
+        df_growth, x="month", y="cumulative",
+        labels={"month": "", "cumulative": "Total Members"},
+        color_discrete_sequence=[COLORS[0]],
+    )
+    fig.update_layout(plot_bgcolor=BG, paper_bgcolor=BG, margin=dict(l=20, r=20, t=10, b=20))
+    fig.show()
+else:
+    print("No membership data available.")
+```
+
+### Column {width=40%}
+
+```{python}
+#| title: "New Registrations per Month"
+if not df_registrations.empty:
+    fig = px.bar(
+        df_registrations, x="month", y="registrations",
+        labels={"month": "", "registrations": "Registrations"},
+        color_discrete_sequence=[COLORS[1]],
+    )
+    fig.update_layout(plot_bgcolor=BG, paper_bgcolor=BG, margin=dict(l=20, r=20, t=10, b=20))
+    fig.show()
+else:
+    print("No registration data available.")
+```
+
+## Row {height=40%}
+
+### Column {width=50%}
+
+```{python}
+#| title: "Enrollment Pipeline"
+if not df_funnel.empty:
+    status_order = ["approved", "payment_pending", "under_review", "pending",
+                    "information_needed", "resubmission_pending", "rejected", "suspended", "resigned"]
+    df_funnel["status"] = pd.Categorical(df_funnel["status"], categories=status_order, ordered=True)
+    df_funnel = df_funnel.sort_values("status")
+    color_map = {
+        "approved": "#10b981", "payment_pending": "#f59e0b", "under_review": "#3b82f6",
+        "pending": "#6b7280", "information_needed": "#f97316", "resubmission_pending": "#8b5cf6",
+        "rejected": "#ef4444", "suspended": "#dc2626", "resigned": "#991b1b"
+    }
+    fig = px.bar(
+        df_funnel, y="status", x="count", orientation="h",
+        labels={"status": "", "count": "Applications"},
+        color="status", color_discrete_map=color_map,
+    )
+    fig.update_layout(
+        showlegend=False, plot_bgcolor=BG, paper_bgcolor=BG,
+        margin=dict(l=20, r=20, t=10, b=20)
+    )
+    fig.show()
+else:
+    print("No enrollment data available.")
+```
+
+### Column {width=50%}
+
+```{python}
+#| title: "Members by Country"
+if not df_geo.empty:
+    fig = px.bar(
+        df_geo.head(10), x="members", y="country", orientation="h",
+        labels={"country": "", "members": "Members"},
+        color_discrete_sequence=[COLORS[4]],
+    )
+    fig.update_layout(
+        yaxis=dict(autorange="reversed"),
+        plot_bgcolor=BG, paper_bgcolor=BG,
+        margin=dict(l=20, r=20, t=10, b=20)
+    )
+    fig.show()
+else:
+    print("No geographic data available.")
+```
+
+## Row {height=40%}
+
+### Column {width=33%}
+
+```{python}
+#| title: "Gender Distribution"
+if not df_gender.empty:
+    fig = px.pie(
+        df_gender, names="gender", values="count",
+        color_discrete_sequence=COLORS,
+        hole=0.4,
+    )
+    fig.update_layout(margin=dict(l=20, r=20, t=10, b=20))
+    fig.show()
+else:
+    print("No gender data available.")
+```
+
+### Column {width=34%}
+
+```{python}
+#| title: "Age Distribution"
+if not df_age.empty:
+    fig = px.histogram(
+        df_age, x="age", nbins=15,
+        labels={"age": "Age", "count": "Members"},
+        color_discrete_sequence=[COLORS[2]],
+    )
+    fig.update_layout(
+        yaxis_title="Members",
+        plot_bgcolor=BG, paper_bgcolor=BG,
+        margin=dict(l=20, r=20, t=10, b=20)
+    )
+    fig.show()
+else:
+    print("No age data available.")
+```
+
+### Column {width=33%}
+
+```{python}
+#| title: "Marital Status"
+if not df_marital.empty:
+    fig = px.pie(
+        df_marital, names="status", values="count",
+        color_discrete_sequence=COLORS,
+        hole=0.4,
+    )
+    fig.update_layout(margin=dict(l=20, r=20, t=10, b=20))
+    fig.show()
+else:
+    print("No marital status data available.")
+```
+
+## Row {height=40%}
+
+### Column {width=50%}
+
+```{python}
+#| title: "Monthly Revenue"
+if not df_rev_month.empty:
+    fig = px.bar(
+        df_rev_month, x="month", y="revenue",
+        labels={"month": "", "revenue": "Revenue (USD)"},
+        color_discrete_sequence=[COLORS[1]],
+    )
+    fig.update_layout(plot_bgcolor=BG, paper_bgcolor=BG, margin=dict(l=20, r=20, t=10, b=20))
+    fig.show()
+else:
+    print("No revenue data available.")
+```
+
+### Column {width=50%}
+
+```{python}
+#| title: "Subscription Plan Distribution"
+if not df_plans.empty:
+    fig = px.pie(
+        df_plans, names="plan", values="subscribers",
+        color_discrete_sequence=COLORS,
+        hole=0.4,
+    )
+    fig.update_layout(margin=dict(l=20, r=20, t=10, b=20))
+    fig.show()
+else:
+    print("No subscription data available.")
+```
+
+## Row {height=40%}
+
+### Column {width=33%}
+
+```{python}
+#| title: "Claims by Status"
+if not df_claims_status.empty:
+    color_map = {"pending": "#f59e0b", "approved": "#10b981", "declined": "#ef4444", "reviewed": "#3b82f6"}
+    fig = px.bar(
+        df_claims_status, x="status", y="count",
+        labels={"status": "", "count": "Claims"},
+        color="status", color_discrete_map=color_map,
+    )
+    fig.update_layout(
+        showlegend=False,
+        plot_bgcolor=BG, paper_bgcolor=BG,
+        margin=dict(l=20, r=20, t=10, b=20)
+    )
+    fig.show()
+else:
+    print("No claims data available.")
+```
+
+### Column {width=34%}
+
+```{python}
+#| title: "Claims Over Time"
+if not df_claims_time.empty:
+    fig = px.line(
+        df_claims_time, x="month", y="claims",
+        labels={"month": "", "claims": "Claims"},
+        color_discrete_sequence=[COLORS[3]],
+        markers=True,
+    )
+    fig.update_layout(plot_bgcolor=BG, paper_bgcolor=BG, margin=dict(l=20, r=20, t=10, b=20))
+    fig.show()
+else:
+    print("No claims timeline data available.")
+```
+
+### Column {width=33%}
+
+```{python}
+#| title: "Referral Programme"
+if not df_referrals.empty:
+    fig = px.bar(
+        df_referrals, x="status", y="count",
+        labels={"status": "", "count": "Referrals"},
+        color_discrete_sequence=[COLORS[6]],
+    )
+    fig.update_layout(plot_bgcolor=BG, paper_bgcolor=BG, margin=dict(l=20, r=20, t=10, b=20))
+    fig.show()
+else:
+    print("No referral data available.")
+```
+
+## Row {height=35%}
+
+```{python}
+#| title: "Campaign Collection Details (Last 20)"
+if not df_campaigns.empty:
+    display_df = df_campaigns.copy()
+    display_df["total_expected"] = (display_df["total_expected_cents"] / 100).map("${:,.2f}".format)
+    display_df["total_collected"] = (display_df["total_collected_cents"] / 100).map("${:,.2f}".format)
+    display_df["collection_rate"] = display_df["pct_collected"].map("{}%".format)
+    display_df = display_df[["title", "status", "obligations_count", "paid_count", "total_expected", "total_collected", "collection_rate"]]
+    display_df.columns = ["Campaign", "Status", "Obligations", "Paid", "Expected", "Collected", "Rate"]
+    display_df
+else:
+    print("No campaign data available.")
+```
+
+```{python}
+#| title: "Key Metrics Summary"
+summary = {
+    "Metric": [
+        "Total Active Members",
+        "Total Revenue Collected",
+        "Open Claims",
+        "Campaign Collection Rate",
+        "Pending Applications",
+        "Active Groups",
+        "Avg. Application Processing (days)",
+    ],
+    "Value": [
+        f"{total_active_members:,}",
+        f"${total_revenue:,.2f}",
+        f"{open_claims:,}",
+        f"{collection_rate}%",
+        f"{pending_apps:,}",
+        f"{active_groups:,}",
+        f"{avg_processing_days}",
+    ],
+}
+pd.DataFrame(summary)
+```
